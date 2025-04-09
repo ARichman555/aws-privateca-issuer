@@ -36,6 +36,9 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
+GOMODCACHE ?= $(shell go env GOMODCACHE)
+GOCACHE ?= $(shell go env GOCACHE)
+
 # BIN is the directory where tools will be installed
 export BIN ?= ${CURDIR}/bin
 
@@ -68,7 +71,7 @@ test: generate fmt vet lint manifests
 	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.0/hack/setup-envtest.sh
 	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test -v ./pkg/... -coverprofile cover.out
 
-e2etest: test
+e2etest:
 	mkdir -p ${ENVTEST_ASSETS_DIR}
 	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.0/hack/setup-envtest.sh
 	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test -v ./e2e/... -coverprofile cover.out
@@ -140,9 +143,11 @@ generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 # Build the docker image
-docker-build: test
+docker-build:
 	docker build \
 		--build-arg pkg_version=${VERSION} \
+		--build-arg go_mod_cache=${GOMODCACHE} \
+		--build-arg go_cache=${GOCACHE} \
 		--tag ${IMG} \
 		--file Dockerfile \
 		--platform=linux/amd64,linux/arm64 \
