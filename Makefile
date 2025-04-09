@@ -36,6 +36,9 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
+GOCACHE ?= $(shell go env GOCACHE)
+GOMODCACHE ?= $(shell go env GOMODCACHE)
+
 # BIN is the directory where tools will be installed
 export BIN ?= ${CURDIR}/bin
 
@@ -142,10 +145,12 @@ generate: controller-gen
 # Build the docker image
 docker-build: test
 	docker build \
+		--build-arg go_cache=${GOCACHE} \
+		--build-arg go_mod_cache=${GOMODCACHE} \
 		--build-arg pkg_version=${VERSION} \
 		--tag ${IMG} \
 		--file Dockerfile \
-		--platform=linux/amd64,linux/arm64 \
+		--platform=linux/amd64 \
 		${CURDIR}
 
 # Push the docker image
@@ -209,7 +214,7 @@ REGISTRY_NAME := "kind-registry"
 REGISTRY_PORT := 5000
 LOCAL_IMAGE := "localhost:${REGISTRY_PORT}/aws-privateca-issuer"
 NAMESPACE := aws-privateca-issuer
-SERVICE_ACCOUNT := ${NAMESPACE}-sa-${ARCH}
+SERVICE_ACCOUNT := ${NAMESPACE}-${ARCH}-sa
 TEST_KUBECONFIG_LOCATION := /tmp/pca_kubeconfig
 
 create-local-registry:
@@ -324,3 +329,4 @@ ${BIN}:
 ${KIND}: ${BIN}
 	curl -sSL -o ${KIND} https://github.com/kubernetes-sigs/kind/releases/download/v${KIND_VERSION}/kind-${OS}-${ARCH}
 	chmod +x ${KIND}
+
