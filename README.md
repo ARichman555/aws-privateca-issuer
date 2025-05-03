@@ -9,7 +9,7 @@
 <img alt="Latest version" src="https://img.shields.io/github/v/release/cert-manager/aws-privateca-issuer?color=success&sort=semver" />
 </p>
 
-# AWS Private CA Issuer
+# AWS Private C Issuer
 
 AWS Private CA is an AWS service that can setup and manage private CAs, as well as issue private certificates.
 
