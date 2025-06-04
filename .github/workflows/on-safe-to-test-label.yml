@@ -33,10 +33,12 @@ jobs:
           AWS_REGION=us-east-1
           VPC_ID=$(aws ec2 describe-vpcs --filters 'Name=tag-key,Values=GithubActionsTesting' --query 'Vpcs[0].VpcId' --output text)
           RUN_NUMBER=$((${{ github.run_attempt}} - 1))
-          SUBNET_ID=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$VPC_ID" "Name=tag-key,Values=GithubActionsTesting"  --query 'Subnets[$RUN_NUMBER].SubnetId' --output text)
+          echo $RUN_NUMBER
+          SUBNET_ID=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$VPC_ID" "Name=tag-key,Values=GithubActionsTesting"  --query 'Subnets['"$RUN_NUMBER"'].SubnetId' --output text)
           SG_ID=$(aws ec2 describe-security-groups --filters "Name=vpc-id,Values=$VPC_ID" "Name=tag-key,Values=GithubActionsTesting" --query 'SecurityGroups[0].GroupId' --output text)
           AMI=$(aws ssm get-parameter --name /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-${{ inputs.architecture }} --query 'Parameter.Value' --output text)
           echo AWS_REGION=$AWS_REGION >> $GITHUB_ENV
+          echo SUBNET_ID=$SUBNET_ID >> $GITHUB_ENV
           echo SG_ID=$SG_ID >> $GITHUB_ENV
           echo AMI=$AMI >> $GITHUB_ENV
       - name: Start EC2 runner
@@ -60,7 +62,7 @@ jobs:
             sudo yum install libicu -y
 
   retry-on-failure:
-    if: failure() && fromJSON(github.run_attempt) < 3
+    if: failure() && fromJSON(github.run_attempt) < 2
     needs: [start-runner]
     runs-on: ubuntu-latest
     steps:
