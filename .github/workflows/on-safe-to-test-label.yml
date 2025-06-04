@@ -83,6 +83,11 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.ref }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
+      - name: Install Development Tools
+        run: |
+          sudo yum groupinstall "Development Tools" -y
+      - name: Install Go
+        run: |
           mkdir /home/ec2-user/.cache/go-mod
           mkdir /home/ec2-user/go
           mkdir /home/ec2-user/go/bin
@@ -243,4 +248,4 @@ jobs:
           mode: stop
           github-token: GithubToken-wrichman-us-east-1 
           label: ${{ needs.start-runner.outputs.label }}
-name: RunTestForArchitecture
+          ec2-instance-id: ${{ needs.start-runner.outputs.ec2-instance-id }}
