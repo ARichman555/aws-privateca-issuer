@@ -92,7 +92,7 @@ func TestMain(m *testing.M) {
 	ecCaArn = createCertificateAuthority(ctx, cfg, false)
 	log.Printf("Created EC CA with arn %s", ecCaArn)
 
-	xaRole, xaRoleExists := os.LookupEnv("PLUGIN_CROSS_ACCOUNT_ROLE")
+	xaRole, xaRoleExists := os.LookupEnv("PLUGIN_CROSS_ACCOUNT_ROLE_FAKE")
 	if xaRoleExists {
 		xaCfg = assumeRole(ctx, cfg, xaRole, region)
 
