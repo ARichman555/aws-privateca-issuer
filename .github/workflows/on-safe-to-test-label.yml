@@ -19,7 +19,6 @@ jobs:
     outputs:
       label: ${{ steps.start-ec2-runner.outputs.label }}
       ec2-instance-id: ${{ steps.start-ec2-runner.outputs.ec2-instance-id }}
-      num-retries: ${{ steps.setup-ec2-parameters.outputs.num-retries }}
     permissions:
       id-token: write
       contents: read
@@ -30,34 +29,27 @@ jobs:
           role-to-assume: arn:aws:iam::905418208571:role/GithubActionsTestingRole-wrichman-us-east-1
           aws-region: us-east-1
       - name: Configure EC2 Runner Parameters
-        id: setup-ec2-parameters
         run: |
           AWS_REGION=us-east-1
           VPC_ID=$(aws ec2 describe-vpcs --filters 'Name=tag-key,Values=GithubActionsTesting' --query 'Vpcs[0].VpcId' --output text)
-          RUN_NUMBER=$((${{ github.run_attempt}} - 1))
-          echo $RUN_NUMBER
-          NUM_SUBNETS=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$VPC_ID" --query "length(Subnets)" --output text)
-          echo $NUM_SUBNETS
-          echo "num-retries=$(($NUM_SUBNETS - 1))" >> $GITHUB_OUTPUT
-          SUBNET_ID=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$VPC_ID" "Name=tag-key,Values=GithubActionsTesting"  --query "Subnets[$RUN_NUMBER].SubnetId" --output text)
           SG_ID=$(aws ec2 describe-security-groups --filters "Name=vpc-id,Values=$VPC_ID" "Name=tag-key,Values=GithubActionsTesting" --query 'SecurityGroups[0].GroupId' --output text)
           AMI=$(aws ssm get-parameter --name /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-${{ inputs.architecture }} --query 'Parameter.Value' --output text)
           echo AWS_REGION=$AWS_REGION >> $GITHUB_ENV
-          echo SUBNET_ID=$SUBNET_ID >> $GITHUB_ENV
+          echo VPC_ID=$VPC_ID >> $GITHUB_ENV
           echo SG_ID=$SG_ID >> $GITHUB_ENV
           echo AMI=$AMI >> $GITHUB_ENV
       - name: Start EC2 runner
         id: start-ec2-runner
-        uses: aws-pca-k8s-plugin-ops-admin/ec2-github-runner@0444f5f46462bcf8d98932bc807d2f51c4945b58
+        uses: ARichman555/ec2-github-runner@da1d6e7f8bb6de46a0fd3ec5540bb0f21a5d5571
         with:
           mode: start
           github-token: GithubToken-wrichman-us-east-1
           ec2-image-id: ${{ env.AMI }}
           ec2-instance-type: ${{ env.EC2_INSTANCE_TYPE }}
-          subnet-id: ${{ env.SUBNET_ID }}
+          ec2-launch-template: GithubRunnerLaunchTemplate-wrichman-us-east-1
+          vpc-id: ${{ env.VPC_ID }}
           security-group-id: ${{ env.SG_ID }}
           iam-role-name: K8sPluginInstanceProfile-wrichman-us-east-1
-          ec2-launch-template: GithubRunnerLaunchTemplate-wrichman-us-east-1 
           aws-resource-tags: >
             [
               {"Key": "Name", "Value": "ec2-github-runner"},
@@ -65,18 +57,6 @@ jobs:
             ]
           pre-runner-script: |
             sudo yum install libicu -y
-
-  retry-on-failure:
-    needs: start-runner
-    if: ${{ always() && needs.start-runner.result == 'failure' && github.run_attempt < needs.start-runner.outputs.num-retries }}
-    runs-on: ubuntu-latest
-    steps:
-      - env:
-          GH_REPO: ${{ github.repository }}
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          echo "Attempting to run EC2 runner again"
-          gh workflow run retry-job.yml -F run_id=${{ github.run_id }}
 
   do-the-job:
     if: ${{ (contains(github.event.pull_request.labels.*.name, 'safe to test') && !contains(github.event.pull_request.labels.*.name, 'lgtm')) || (contains(github.event_name, 'workflow_dispatch')) }}
@@ -252,7 +232,7 @@ jobs:
           AWS_REGION=us-east-1
           echo AWS_REGION=$AWS_REGION >> $GITHUB_ENV
       - name: Stop EC2 runner
-        uses: aws-pca-k8s-plugin-ops-admin/ec2-github-runner@0444f5f46462bcf8d98932bc807d2f51c4945b58
+        uses: ARichman555/ec2-github-runner@0444f5f46462bcf8d98932bc807d2f51c4945b58
         with:
           mode: stop
           github-token: GithubToken-wrichman-us-east-1 
