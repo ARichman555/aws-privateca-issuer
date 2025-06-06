@@ -77,6 +77,8 @@ jobs:
           sudo yum groupinstall "Development Tools" -y
       - name: Install Go
         run: |
+          mkdir /home/ec2-user/.cache
+          mkdir /home/ec2-user/.cache/go-build
           mkdir /home/ec2-user/.cache/go-mod
           mkdir /home/ec2-user/go
           mkdir /home/ec2-user/go/bin
