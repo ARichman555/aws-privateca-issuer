@@ -9,7 +9,7 @@ on:
 
 env:
   AWS_CLI_ARCHITECTURE: ${{ inputs.architecture == 'arm64' && 'aarch64' || 'x86_64' }}
-  EC2_INSTANCE_TYPE: ${{ inputs.architecture == 'arm64' && 'c7gn.xlarge' || 'c7a.xlarge' }}
+  EC2_INSTANCE_TYPE: ${{ inputs.architecture == 'arm64' && 'c7gn.xlarge' || 't3.medium' }}
   GO_ARCHITECTURE: ${{ inputs.architecture == 'arm64' && 'arm64' || 'amd64' }}
   KUBECTL_ARCHITECTURE: $GO_ARCHITECTURE
 
