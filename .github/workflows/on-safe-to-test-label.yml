@@ -26,7 +26,7 @@ jobs:
       - name: Setup AWS Credentials
         uses: aws-actions/configure-aws-credentials@master
         with:
-          role-to-assume: arn:aws:iam::783680406432:role/GithubActionsTestingRole-test-us-east-1
+          role-to-assume: arn:aws:iam::905418208571:role/GithubActionsPublishRole-wrichman-us-east-1
           aws-region: us-east-1
       - name: Configure EC2 Runner Parameters
         run: |
@@ -44,13 +44,13 @@ jobs:
         uses: aws-pca-k8s-plugin-ops-admin/ec2-github-runner@9b6ccbec650ce10575bd9134ef7624307e3f70af
         with:
           mode: start
-          github-token: GithubToken-test-us-east-1
+          github-token: GithubToken-wrichman-us-east-1
           ec2-image-id: ${{ env.AMI }}
           ec2-instance-type: ${{ env.EC2_INSTANCE_TYPE }}
           vpc-id: ${{ env.VPC_ID }}
           security-group-id: ${{ env.SG_ID }}
-          iam-role-name: K8sPluginInstanceProfile-test-us-east-1
-          ec2-launch-template: GithubRunnerLaunchTemplate-test-us-east-1
+          iam-role-name: K8sPluginInstanceProfile-wrichman-us-east-1
+          ec2-launch-template: GithubRunnerLaunchTemplate-wrichman-us-east-1
           aws-resource-tags: >
             [
               {"Key": "Name", "Value": "ec2-github-runner"},
