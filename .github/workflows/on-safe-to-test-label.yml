@@ -41,7 +41,7 @@ jobs:
           echo AMI=$AMI >> $GITHUB_ENV
       - name: Start EC2 runner
         id: start-ec2-runner
-        uses: aws-pca-k8s-plugin-ops-admin/ec2-github-runner@9b6ccbec650ce10575bd9134ef7624307e3f70af
+        uses: aws-pca-k8s-plugin-ops-admin/ec2-github-runner@dad17f84c076cc74394652fdc8c7a5d4cc340cca
         with:
           mode: start
           github-token: GithubToken-wrichman-us-east-1
