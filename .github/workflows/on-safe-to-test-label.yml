@@ -26,7 +26,7 @@ jobs:
       - name: Setup AWS Credentials
         uses: aws-actions/configure-aws-credentials@master
         with:
-          role-to-assume: arn:aws:iam::905418208571:role/GithubActionsPublishRole-wrichman-us-east-1
+          role-to-assume: arn:aws:iam::905418208571:role/GithubActionsTestingRole-wrichman-us-east-1
           aws-region: us-east-1
       - name: Configure EC2 Runner Parameters
         run: |
