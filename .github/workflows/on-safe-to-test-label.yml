@@ -1,6 +1,11 @@
 name: RunTestForArchitecture
 
 on:
+  workflow_dispatch:
+    inputs:
+      architecture:
+        required: true
+        type: string
   workflow_call:
     inputs:
       architecture:
