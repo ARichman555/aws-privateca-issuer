@@ -4,4 +4,3 @@ metadata:
   name: pca-cluster-issuer-rsa
 spec:
   arn: {{RSA_CA_ARN}}
-  region: {{REGION}}

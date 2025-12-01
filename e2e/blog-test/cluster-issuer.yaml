@@ -4,4 +4,3 @@ metadata:
   name: demo-test-root-ca
 spec:
   arn: $CA_ARN
-  region: $AWS_REGION

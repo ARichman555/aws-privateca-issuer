@@ -17,44 +17,41 @@ limitations under the License.
 package controllers
 
 import (
-	"context"
-	"errors"
-	"fmt"
-	"os"
+        "context"
+        "errors"
+        "fmt"
+        "os"
 
-	"github.com/aws/aws-sdk-go-v2/service/sts"
-	api "github.com/cert-manager/aws-privateca-issuer/pkg/api/v1beta1"
-	awspca "github.com/cert-manager/aws-privateca-issuer/pkg/aws"
-	"github.com/cert-manager/aws-privateca-issuer/pkg/util"
-	"github.com/go-logr/logr"
-	core "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/record"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+        "github.com/aws/aws-sdk-go-v2/service/sts"
+        api "github.com/cert-manager/aws-privateca-issuer/pkg/api/v1beta1"
+        awspca "github.com/cert-manager/aws-privateca-issuer/pkg/aws"
+        "github.com/cert-manager/aws-privateca-issuer/pkg/util"
+        "github.com/go-logr/logr"
+        core "k8s.io/api/core/v1"
+        metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+        "k8s.io/apimachinery/pkg/runtime"
+        "k8s.io/client-go/tools/record"
+        ctrl "sigs.k8s.io/controller-runtime"
+        "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
-	errNoArnInSpec    = errors.New("no Arn found in Issuer Spec")
-	errNoRegionInSpec = errors.New("no Region found in Issuer Spec")
+        errNoArnInSpec = errors.New("no Arn found in Issuer Spec")
 )
-
-var awsDefaultRegion = os.Getenv("AWS_REGION")
 
 // GenericIssuerReconciler reconciles both AWSPCAIssuer and AWSPCAClusterIssuer objects
 type GenericIssuerReconciler struct {
-	client.Client
-	Log      logr.Logger
-	Scheme   *runtime.Scheme
-	Recorder record.EventRecorder
+        client.Client
+        Log      logr.Logger
+        Scheme   *runtime.Scheme
+        Recorder record.EventRecorder
 
-	// GetCallerIdentitty should be set to true if you want to call and log the
-	// result of sts.GetCallerIdentity.
-	// This is useful to verify what AWS user is being authenticated by the Issuer,
-	// but can be skipped during unit tests to avoid having a dependency on a
-	// live STS service.
-	GetCallerIdentity bool
+        // GetCallerIdentitty should be set to true if you want to call and log the
+        // result of sts.GetCallerIdentity.
+        // This is useful to verify what AWS user is being authenticated by the Issuer,
+        // but can be skipped during unit tests to avoid having a dependency on a
+        // live STS service.
+        GetCallerIdentity bool
 }
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -63,55 +60,53 @@ type GenericIssuerReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.7.0/pkg/reconcile
 func (r *GenericIssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request, issuer api.GenericIssuer) (ctrl.Result, error) {
-	log := r.Log.WithValues("genericissuer", req.NamespacedName)
-	spec := issuer.GetSpec()
-	err := validateIssuer(spec)
-	if err != nil {
-		log.Error(err, "failed to validate issuer")
-		_ = r.setStatus(ctx, issuer, metav1.ConditionFalse, "Validation", "Failed to validate resource: %v", err)
-		return ctrl.Result{}, err
-	}
+        log := r.Log.WithValues("genericissuer", req.NamespacedName)
+        spec := issuer.GetSpec()
+        err := validateIssuer(spec)
+        if err != nil {
+                log.Error(err, "failed to validate issuer")
+                _ = r.setStatus(ctx, issuer, metav1.ConditionFalse, "Validation", "Failed to validate resource: %v", err)
+                return ctrl.Result{}, err
+        }
 
-	awspca.DeleteProvisioner(ctx, r.Client, req.NamespacedName)
-	cfg, err := awspca.GetConfig(ctx, r.Client, spec)
-	if err != nil {
-		log.Error(err, "Error loading config")
-		_ = r.setStatus(ctx, issuer, metav1.ConditionFalse, "Error", err.Error())
-		return ctrl.Result{}, err
-	}
+        awspca.DeleteProvisioner(ctx, r.Client, req.NamespacedName)
+        cfg, err := awspca.GetConfig(ctx, r.Client, spec)
+        if err != nil {
+                log.Error(err, "Error loading config")
+                _ = r.setStatus(ctx, issuer, metav1.ConditionFalse, "Error", err.Error())
+                return ctrl.Result{}, err
+        }
 
-	if r.GetCallerIdentity {
-		id, err := sts.NewFromConfig(cfg).GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
-		if err != nil {
-			log.Error(err, "failed to sts.GetCallerIdentity")
-			return ctrl.Result{}, err
-		}
-		log.Info("sts.GetCallerIdentity", "arn", id.Arn, "account", id.Account, "user_id", id.UserId)
-	}
+        if r.GetCallerIdentity {
+                id, err := sts.NewFromConfig(cfg).GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
+                if err != nil {
+                        log.Error(err, "failed to sts.GetCallerIdentity")
+                        return ctrl.Result{}, err
+                }
+                log.Info("sts.GetCallerIdentity", "arn", id.Arn, "account", id.Account, "user_id", id.UserId)
+        }
 
-	return ctrl.Result{}, r.setStatus(ctx, issuer, metav1.ConditionTrue, "Verified", "Issuer verified")
+        return ctrl.Result{}, r.setStatus(ctx, issuer, metav1.ConditionTrue, "Verified", "Issuer verified")
 }
 
 func (r *GenericIssuerReconciler) setStatus(ctx context.Context, issuer api.GenericIssuer, status metav1.ConditionStatus, reason, message string, args ...interface{}) error {
-	log := r.Log.WithValues("genericissuer", issuer.GetName())
-	completeMessage := fmt.Sprintf(message, args...)
-	util.SetIssuerCondition(log, issuer, api.ConditionTypeReady, status, reason, completeMessage)
+        log := r.Log.WithValues("genericissuer", issuer.GetName())
+        completeMessage := fmt.Sprintf(message, args...)
+        util.SetIssuerCondition(log, issuer, api.ConditionTypeReady, status, reason, completeMessage)
 
-	eventType := core.EventTypeNormal
-	if status == metav1.ConditionFalse {
-		eventType = core.EventTypeWarning
-	}
-	r.Recorder.Event(issuer, eventType, reason, completeMessage)
+        eventType := core.EventTypeNormal
+        if status == metav1.ConditionFalse {
+                eventType = core.EventTypeWarning
+        }
+        r.Recorder.Event(issuer, eventType, reason, completeMessage)
 
-	return r.Client.Status().Update(ctx, issuer)
+        return r.Client.Status().Update(ctx, issuer)
 }
 
 func validateIssuer(spec *api.AWSPCAIssuerSpec) error {
-	switch {
-	case spec.Arn == "":
-		return fmt.Errorf(errNoArnInSpec.Error())
-	case spec.Region == "" && awsDefaultRegion == "":
-		return fmt.Errorf(errNoRegionInSpec.Error())
-	}
-	return nil
+        switch {
+        case spec.Arn == "":
+                return fmt.Errorf(errNoArnInSpec.Error())
+        }
+        return nil
 }

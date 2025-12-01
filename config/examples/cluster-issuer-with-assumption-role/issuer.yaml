@@ -5,4 +5,3 @@ metadata:
 spec:
   arn: <some-pca-arn>
   role: <some-role-arn>
-  region: us-west-2

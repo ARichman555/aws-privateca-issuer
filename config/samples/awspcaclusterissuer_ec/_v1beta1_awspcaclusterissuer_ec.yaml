@@ -4,4 +4,3 @@ metadata:
   name: pca-cluster-issuer-ec
 spec:
   arn: {{EC_CA_ARN}}
-  region: {{REGION}}
