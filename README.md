@@ -8,6 +8,7 @@
 
 # AWS Private CA Issuer
 
+SAMPLE README TEST
 
 > [!TIP]
 > Amazon Elastic Kubernetes Service (EKS) supports AWS Private CA Issuer as an EKS Add-on named `aws-privateca-connector-for-kubernetes`. This simplifies installation and configuration for Amazon EKS users. See <a href="https://docs.aws.amazon.com/eks/latest/userguide/workloads-add-ons-available-eks.html#add-ons-aws-privateca-connector">AWS add-ons</ulink> for more information.
@@ -258,18 +259,18 @@ Before running ```make cluster``` we will need to do the following:
 {  
   "Version": "2012-10-17",  
   "Statement": [  
-	{  
+        {  
       "Effect": "Allow",  
-	  "Principal": {  
-	    "Federated": "${OIDC_ARN}"  
-	   },  
-	   "Action": "sts:AssumeRoleWithWebIdentity",  
-	   "Condition": {  
-	     "StringEquals": {  
-	       "${OIDC_URL}:sub": "system:serviceaccount:aws-privateca-issuer:aws-privateca-issuer-sa"  
-	     }  
-	   }  
-	 }  
+          "Principal": {  
+            "Federated": "${OIDC_ARN}"  
+           },  
+           "Action": "sts:AssumeRoleWithWebIdentity",  
+           "Condition": {  
+             "StringEquals": {  
+               "${OIDC_URL}:sub": "system:serviceaccount:aws-privateca-issuer:aws-privateca-issuer-sa"  
+             }  
+           }  
+         }  
    ]  
 }
 ```
