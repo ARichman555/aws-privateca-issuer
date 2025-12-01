@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package aws provides AWS Private Certificate Authority integration for cert-manager.
-// It handles AWS authentication, certificate signing, and PCA client management.
 package aws
 
 import (
