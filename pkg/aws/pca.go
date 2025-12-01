@@ -287,7 +287,12 @@ func (p *PCAProvisioner) Get(ctx context.Context, cr *cmapi.CertificateRequest, 
 func getSigningAlgorithm(ctx context.Context, p *PCAProvisioner) error {
         if p.signingAlgorithm != nil {
 func templateArn(caArn string, spec cmapi.CertificateRequestSpec, issuerSpec *api.AWSPCAIssuerSpec) string {
-	// Use custom template ARN if provided
+func templateArn(caArn string, spec cmapi.CertificateRequestSpec, issuerSpec *api.AWSPCAIssuerSpec) string {
+        // Use custom template ARN if provided
+        if issuerSpec != nil && issuerSpec.TemplateArn != "" {
+                return issuerSpec.TemplateArn
+        }
+
 	if issuerSpec != nil && issuerSpec.TemplateArn != "" {
 		return issuerSpec.TemplateArn
 	}
