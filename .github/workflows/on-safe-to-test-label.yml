@@ -70,7 +70,14 @@ jobs:
     runs-on: ${{ needs.start-runner.outputs.label }} # run the job on the newly created runner
     steps:
       - name: Install Git
-        run: sudo yum install git -y
+        run: |
+          # Install git with retry logic
+          if ! sudo yum install git -y; then
+            echo "Git installation failed, retrying..."
+            sudo yum clean all
+            sudo yum makecache
+            sudo yum install git -y
+          fi
       - name: Check out code into the Go module directory
         uses: actions/checkout@v4
         with:
@@ -129,7 +136,13 @@ jobs:
           key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
       - name: Install Docker
         run: |
-          sudo yum install docker -y
+          # Install docker with retry logic
+          if ! sudo yum install docker -y; then
+            echo "Docker installation failed, retrying..."
+            sudo yum clean all
+            sudo yum makecache
+            sudo yum install docker -y
+          fi
           sudo service docker start
           sudo touch /etc/docker/daemon.json
           sudo echo '{"features": {"containerd-snapshotter": true}}' > /etc/docker/daemon.json
@@ -145,7 +158,13 @@ jobs:
           sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
       - name: Install Jq
         run: |
-          sudo yum install jq -y
+          # Install jq with retry logic
+          if ! sudo yum install jq -y; then
+            echo "Jq installation failed, retrying..."
+            sudo yum clean all
+            sudo yum makecache
+            sudo yum install jq -y
+          fi
       - name: Install Helm
         run: |
           curl -sSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
