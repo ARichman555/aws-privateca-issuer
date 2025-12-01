@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import re
 import subprocess
 
 os.chdir('/workspace')
@@ -24,7 +25,7 @@ for i, line in enumerate(lines):
         # Replace the 8 spaces with a single TAB
         fixed_line = '\t' + line[8:]
         fixed_lines.append(fixed_line)
-        print(f"Fixed line {i+1}: {repr(line[:20])} -> {repr(fixed_line[:20])}")
+        print(f"Fixed line {i+1}: spaces -> TAB")
     else:
         fixed_lines.append(line)
 
@@ -54,7 +55,7 @@ print("Makefile has been updated with proper TAB indentation and golangci-lint i
 # Test the syntax
 print("\nTesting Makefile syntax...")
 try:
-    result = subprocess.run(['make', '--dry-run', 'test'], capture_output=True, text=True, timeout=10)
+    result = subprocess.run(['make', '--dry-run', 'test'], capture_output=True, text=True, timeout=10, cwd='/workspace')
     if result.returncode == 0:
         print("✓ Makefile syntax is now correct!")
     else:
