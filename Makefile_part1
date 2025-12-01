@@ -1,0 +1,140 @@
+# The version which will be reported by the --version argument of each binary
+# and which will be used as the Docker image tag
+VERSION := $(shell git remote add mainRepo https://github.com/cert-manager/aws-privateca-issuer.git && git fetch mainRepo --tags && git describe --tags | awk -F"-" '{print $$1}' && git remote remove mainRepo)
+
+# Default bundle image tag
+BUNDLE_IMG ?= controller-bundle:$(VERSION)
+
+# Options for 'bundle-build'
+ifneq ($(origin CHANNELS), undefined)
+BUNDLE_CHANNELS := --channels=$(CHANNELS)
+endif
+ifneq ($(origin DEFAULT_CHANNEL), undefined)
+BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
+endif
+BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
+
+MAKEFLAGS += --warn-undefined-variables
+SHELL := bash
+.DELETE_ON_ERROR:
+.SUFFIXES:
+.ONESHELL:
+
+# The Docker repository name, overridden in CI.
+DOCKER_REGISTRY ?= ghcr.io
+DOCKER_IMAGE_NAME ?= cert-manager/aws-privateca-issuer/controller
+
+# Image URL to use all building/pushing image targets
+IMG ?= ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:${VERSION}
+# Produce CRDs that work back to Kubernetes 1.13 (no version conversion)
+CRD_OPTIONS ?= "crd"
+
+# Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
+ifeq (,$(shell go env GOBIN))
+GOBIN=$(shell go env GOPATH)/bin
+else
+GOBIN=$(shell go env GOBIN)
+endif
+
+GOCACHE ?= $(shell go env GOCACHE)
+GOMODCACHE ?= $(shell go env GOMODCACHE)
+
+# BIN is the directory where tools will be installed
+export BIN ?= ${CURDIR}/bin
+
+OS := $(shell go env GOOS)
+ARCH := $(shell go env GOARCH)
+
+# Kind
+KIND_VERSION := 0.19.0
+KIND := ${BIN}/kind-${KIND_VERSION}
+K8S_CLUSTER_NAME := pca-external-issuer
+
+# cert-manager
+CERT_MANAGER_VERSION ?= v1.17.1
+
+# Controller tools
+CONTROLLER_GEN_VERSION := 0.17.3
+CONTROLLER_GEN := ${BIN}/controller-gen-${CONTROLLER_GEN_VERSION}
+
+# Helm tools
+HELM_TOOL_VERSION := v0.2.3
+
+INSTALL_YAML ?= build/install.yaml
+
+all: manager
+
+# Run tests
+ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
+test: generate fmt vet lint manifests
+	mkdir -p ${ENVTEST_ASSETS_DIR}
+	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.0/hack/setup-envtest.sh
+	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test -v ./pkg/... -coverprofile cover.out
+
+e2etest: test
+	mkdir -p ${ENVTEST_ASSETS_DIR}
+	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.0/hack/setup-envtest.sh
+	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test -v ./e2e/... -coverprofile cover.out
+
+helm-test: manager kind-cluster
+	$$SHELL e2e/helm_test.sh
+
+blog-test:
+	$$SHELL e2e/blog_test.sh
+
+# Build manager binary
+manager: generate fmt vet lint
+	go build \
+	-ldflags="-X github.com/cert-manager/aws-privateca-issuer/pkg/api/injections.PlugInVersion=${VERSION} \
+	-X github.com/cert-manager/aws-privateca-issuer/pkg/api/injections.UserAgent=aws-privateca-issuer" \
+	-o bin/manager main.go
+
+# Run against the configured Kubernetes cluster in ~/.kube/config
+run: generate fmt vet lint manifests
+	go run ./main.go
+
+# Install CRDs into a cluster
+install: manifests kustomize
+	$(KUSTOMIZE) build config/crd | kubectl apply -f - --kubeconfig=${TEST_KUBECONFIG_LOCATION}
+
+# Uninstall CRDs from a cluster
+uninstall: manifests kustomize
+	$(KUSTOMIZE) build config/crd | kubectl delete -f - --kubeconfig=${TEST_KUBECONFIG_LOCATION}
+
+.PHONY: ${INSTALL_YAML} kustomize
+${INSTALL_YAML}: kustomize
+	mkdir -p $(dir ${INSTALL_YAML})
+	rm -rf kustomization.yaml
+	$(KUSTOMIZE) create --resources ./config/default
+	$(KUSTOMIZE) edit set image controller=${IMG}
+	$(KUSTOMIZE) build . > ${INSTALL_YAML}
+
+# Deploy controller in the configured Kubernetes cluster in ~/.kube/config
+deploy: ${INSTALL_YAML}
+	kubectl apply -f ${INSTALL_YAML} --kubeconfig=${TEST_KUBECONFIG_LOCATION}
+
+# UnDeploy controller from the configured Kubernetes cluster in ~/.kube/config
+undeploy:
+	$(KUSTOMIZE) build config/default | kubectl delete -f - --kubeconfig=${TEST_KUBECONFIG_LOCATION}
+
+# Generate manifests e.g. CRD, RBAC etc.
+manifests: controller-gen
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+
+helm-docs: helm-tool
+	$(HELM_TOOL) inject -i charts/aws-pca-issuer/values.yaml -o charts/aws-pca-issuer/README.md --header-search "^<!-- AUTO-GENERATED -->" --footer-search "<!-- /AUTO-GENERATED -->"
+
+# Run goimports against code
+fmt: goimports-tool
+	$(GOIMPORTS_TOOL) -w .
+
+# Run go vet against code
+vet:
+	go vet ./...
+
+lint: golangci-lint
+	$(GOLANGCILINT) run --timeout 10m
+
+# Generate code
+generate: controller-gen
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
