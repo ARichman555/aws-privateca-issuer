@@ -203,7 +203,7 @@ func (p *PCAProvisioner) Sign(ctx context.Context, cr *cmapi.CertificateRequest,
         }
 
         tempArn := templateArn(p.arn, cr.Spec, p.issuerSpec)
-
+	tempArn := templateArn(p.arn, cr.Spec, p.issuerSpec)
         // Consider it a "retry" if we try to re-create a cert with the same name in the same namespace
         token := idempotencyToken(cr)
 
