@@ -17,8 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
-        v1 "k8s.io/api/core/v1"
-        metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -26,61 +26,42 @@ import (
 
 // AWSPCAIssuerSpec defines the desired state of AWSPCAIssuer
 type AWSPCAIssuerSpec struct {
-        // INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-        // Important: Run "make" to regenerate code after modifying this file
+	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+	// Important: Run "make" to regenerate code after modifying this file
 
-        // Specifies the ARN of the PCA resource
-        Arn string `json:"arn,omitempty"`
-        // Should contain the AWS region if it cannot be inferred
-        // +optional
-        Region string `json:"region,omitempty"`
-        // Needs to be specified if you want to authorize with AWS using an access and secret key
-        // +optional
-        SecretRef AWSCredentialsSecretReference `json:"secretRef,omitempty"`
-        // Specifies the ARN of role to assume when issuing certificates.
-        // +optional
-        Role string `json:"role,omitempty"`
-        // Configuration for handling name constraints in CA certificates
-        // +optional
-        NameConstraints *NameConstraintsConfig `json:"nameConstraints,omitempty"`
+	// Specifies the ARN of the PCA resource
+	Arn string `json:"arn,omitempty"`
+	// Should contain the AWS region if it cannot be inferred
+	// +optional
+	Region string `json:"region,omitempty"`
+	// Needs to be specified if you want to authorize with AWS using an access and secret key
+	// +optional
+	SecretRef AWSCredentialsSecretReference `json:"secretRef,omitempty"`
+	// Specifies the ARN of role to assume when issuing certificates.
+	// +optional
+	Role string `json:"role,omitempty"`
+	// Specifies a custom template ARN to use for certificate issuance
+	// +optional
+	TemplateArn string `json:"templateArn,omitempty"`
 }
 
 // AWSCredentialsSecretReference defines the secret used by the issuer
 type AWSCredentialsSecretReference struct {
-        v1.SecretReference `json:""`
-        // Specifies the secret key where the AWS Access Key ID exists
-        // +optional
-        AccessKeyIDSelector v1.SecretKeySelector `json:"accessKeyIDSelector,omitempty"`
-        // Specifies the secret key where the AWS Secret Access Key exists
-        // +optional
-        SecretAccessKeySelector v1.SecretKeySelector `json:"secretAccessKeySelector,omitempty"`
-}
-
-// NameConstraintsTemplateType defines the template type to use when name constraints are present
-type NameConstraintsTemplateType string
-
-const (
-        // NameConstraintsTemplateTypeCSRPassthrough uses CSRPassthrough template
-        NameConstraintsTemplateTypeCSRPassthrough NameConstraintsTemplateType = "CSRPassthrough"
-        // NameConstraintsTemplateTypeAPIPassthrough uses APIPassthrough template
-        NameConstraintsTemplateTypeAPIPassthrough NameConstraintsTemplateType = "APIPassthrough"
-)
-
-// NameConstraintsConfig defines configuration for handling name constraints
-type NameConstraintsConfig struct {
-        // Template type to use when name constraints are detected in CA certificate requests
-        // Valid values are "CSRPassthrough" and "APIPassthrough"
-        // Defaults to "CSRPassthrough" if not specified
-        // +optional
-        TemplateType NameConstraintsTemplateType `json:"templateType,omitempty"`
+	v1.SecretReference `json:""`
+	// Specifies the secret key where the AWS Access Key ID exists
+	// +optional
+	AccessKeyIDSelector v1.SecretKeySelector `json:"accessKeyIDSelector,omitempty"`
+	// Specifies the secret key where the AWS Secret Access Key exists
+	// +optional
+	SecretAccessKeySelector v1.SecretKeySelector `json:"secretAccessKeySelector,omitempty"`
 }
 
 // AWSPCAIssuerStatus defines the observed state of AWSPCAIssuer
 type AWSPCAIssuerStatus struct {
-        // INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-        // Important: Run "make" to regenerate code after modifying this file
+	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+	// Important: Run "make" to regenerate code after modifying this file
 
-        Conditions []metav1.Condition `json:"conditions,omitempty"`
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // ConditionTypeReady is the default condition type for the CRs
@@ -91,20 +72,20 @@ const ConditionTypeReady = "Ready"
 
 // AWSPCAIssuer is the Schema for the awspcaissuers API
 type AWSPCAIssuer struct {
-        metav1.TypeMeta   `json:",inline"`
-        metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-        Spec   AWSPCAIssuerSpec   `json:"spec,omitempty"`
-        Status AWSPCAIssuerStatus `json:"status,omitempty"`
+	Spec   AWSPCAIssuerSpec   `json:"spec,omitempty"`
+	Status AWSPCAIssuerStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
 // AWSPCAIssuerList contains a list of AWSPCAIssuer
 type AWSPCAIssuerList struct {
-        metav1.TypeMeta `json:",inline"`
-        metav1.ListMeta `json:"metadata,omitempty"`
-        Items           []AWSPCAIssuer `json:"items"`
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []AWSPCAIssuer `json:"items"`
 }
 
 // +kubebuilder:object:root=true
@@ -113,23 +94,23 @@ type AWSPCAIssuerList struct {
 // AWSPCAClusterIssuer is the Schema for the awspcaclusterissuers API
 // +kubebuilder:resource:path=awspcaclusterissuers,scope=Cluster
 type AWSPCAClusterIssuer struct {
-        metav1.TypeMeta   `json:",inline"`
-        metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-        Spec   AWSPCAIssuerSpec   `json:"spec,omitempty"`
-        Status AWSPCAIssuerStatus `json:"status,omitempty"`
+	Spec   AWSPCAIssuerSpec   `json:"spec,omitempty"`
+	Status AWSPCAIssuerStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
 // AWSPCAClusterIssuerList contains a list of AWSPCAClusterIssuer
 type AWSPCAClusterIssuerList struct {
-        metav1.TypeMeta `json:",inline"`
-        metav1.ListMeta `json:"metadata,omitempty"`
-        Items           []AWSPCAClusterIssuer `json:"items"`
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []AWSPCAClusterIssuer `json:"items"`
 }
 
 func init() {
-        SchemeBuilder.Register(&AWSPCAIssuer{}, &AWSPCAIssuerList{})
-        SchemeBuilder.Register(&AWSPCAClusterIssuer{}, &AWSPCAClusterIssuerList{})
+	SchemeBuilder.Register(&AWSPCAIssuer{}, &AWSPCAIssuerList{})
+	SchemeBuilder.Register(&AWSPCAClusterIssuer{}, &AWSPCAClusterIssuerList{})
 }
