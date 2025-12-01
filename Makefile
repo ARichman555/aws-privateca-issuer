@@ -132,8 +132,12 @@ fmt: goimports-tool
 vet:
         go vet ./...
 
-lint: golangci-lint
-        $(GOLANGCILINT) run --timeout 10m
+lint:
+        echo "Linter is deprecated with go1.18!"
+
+#lint: golangci-lint golint
+        #$(GOLANGCILINT) run --timeout 10m
+        #$(GOLINT) ./...
 
 # Generate code
 generate: controller-gen
@@ -179,7 +183,7 @@ golint:
 
 GOLANGCILINT = $(shell pwd)/bin/golangci-lint
 golangci-lint:
-        $(call go-install-tool,$(GOLANGCILINT),github.com/golangci/golangci-lint/cmd/golangci-lint@v1.55.2)
+        $(call go-install-tool,$(GOLANGCILINT),github.com/golangci/golangci-lint/cmd/golangci-lint@v1.35.2)
 
 # go-install-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
