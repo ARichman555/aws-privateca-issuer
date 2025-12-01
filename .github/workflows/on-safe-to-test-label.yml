@@ -79,7 +79,18 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
       - name: Install Development Tools
         run: |
-          sudo yum groupinstall "Development Tools" -y
+          # Clean package cache to avoid corruption issues
+          sudo yum clean all
+          sudo yum makecache
+          
+          # Try group installation first, fall back to individual packages if it fails
+          if ! sudo yum groupinstall "Development Tools" -y; then
+            echo "Group installation failed, installing individual packages..."
+            sudo yum install -y make gcc gcc-c++ kernel-devel autoconf automake libtool pkgconfig
+          fi
+          
+          # Verify make is installed
+          make --version
       - name: Install Go
         run: |
           mkdir /home/ec2-user/.cache
