@@ -124,3 +124,4 @@ Example:
 - **Comprehensive Validation**: Tests both template rendering and runtime behavior
 - **CI/CD Integration**: Automated testing on every chart change
 - **Familiar Patterns**: Uses same approach as existing e2e tests in repository
+# Trigger workflow test
