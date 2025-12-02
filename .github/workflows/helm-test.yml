@@ -2,9 +2,9 @@ name: Helm Chart End-to-End Tests
 
 on:
   push:
-    branches: [ main, helm-testing-implementation ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, helm-testing-implementation ]
+    branches: [ main ]
 
 jobs:
   helm-e2e-tests:
