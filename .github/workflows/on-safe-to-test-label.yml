@@ -79,6 +79,8 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
       - name: Install Development Tools
         run: |
+          sudo yum clean all
+          sudo yum makecache
           sudo yum groupinstall "Development Tools" -y
       - name: Install Go
         run: |
@@ -120,24 +122,68 @@ jobs:
         run: |
           sudo yum install docker -y
           sudo service docker start
+          # Wait for Docker daemon to be ready
+          timeout 30 bash -c 'until docker info >/dev/null 2>&1; do sleep 1; done'
           sudo touch /etc/docker/daemon.json
           sudo echo '{"features": {"containerd-snapshotter": true}}' > /etc/docker/daemon.json
           sudo systemctl restart docker
+          # Verify Docker is working after restart
+          timeout 30 bash -c 'until docker info >/dev/null 2>&1; do sleep 1; done'
+          docker --version
       - name: Install AWS CLI v2
         run: |
-          curl "https://awscli.amazonaws.com/awscli-exe-linux-${{ env.AWS_CLI_ARCHITECTURE }}.zip" -o "awscliv2.zip"
+          # Retry AWS CLI download up to 3 times
+          for i in {1..3}; do
+            if curl "https://awscli.amazonaws.com/awscli-exe-linux-${{ env.AWS_CLI_ARCHITECTURE }}.zip" -o "awscliv2.zip"; then
+              break
+            fi
+            echo "AWS CLI download attempt $i failed, retrying..."
+            sleep 5
+          done
           unzip awscliv2.zip
           sudo ./aws/install
+          # Verify AWS CLI installation
+          aws --version
       - name: Install kubectl
         run: |
-          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${{ env.KUBECTL_ARCHITECTURE }}/kubectl"
+          # Get latest stable version with retry
+          for i in {1..3}; do
+            if KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt); then
+              break
+            fi
+            echo "kubectl version fetch attempt $i failed, retrying..."
+            sleep 5
+          done
+          # Download kubectl with retry
+          for i in {1..3}; do
+            if curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${{ env.KUBECTL_ARCHITECTURE }}/kubectl"; then
+              break
+            fi
+            echo "kubectl download attempt $i failed, retrying..."
+            sleep 5
+          done
           sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+          # Verify kubectl installation
+          kubectl version --client
       - name: Install Jq
         run: |
           sudo yum install jq -y
+          # Verify jq installation
+          jq --version
       - name: Install Helm
         run: |
-          curl -sSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+          # Retry Helm installation script download
+          for i in {1..3}; do
+            if curl -sSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 -o get_helm.sh; then
+              break
+            fi
+            echo "Helm script download attempt $i failed, retrying..."
+            sleep 5
+          done
+          chmod +x get_helm.sh
+          ./get_helm.sh
+          # Verify Helm installation
+          helm version
       - name: Setup test environment
         run: |
           export PLUGIN_USER_NAME_OVERRIDE=K8sPluginUser-test-us-east-1
@@ -153,14 +199,27 @@ jobs:
       - name: Copy Kind logs to S3
         if: ${{ always() }}
         run: |
-          mkdir logs
+          mkdir -p logs
           export E2E_ARTIFACTS_DIRECTORY=logs
-          make kind-export-logs
-          aws s3 cp --recursive logs s3://aws-privateca-issuer-k8s-logs-test-us-east-1/${{ needs.start-runner.outputs.ec2-instance-id }}/
+          # Try to export logs, but don't fail if it doesn't work
+          make kind-export-logs || echo "Failed to export kind logs, continuing..."
+          # Only upload if logs directory has content
+          if [ "$(ls -A logs 2>/dev/null)" ]; then
+            aws s3 cp --recursive logs s3://aws-privateca-issuer-k8s-logs-test-us-east-1/${{ needs.start-runner.outputs.ec2-instance-id }}/
+          else
+            echo "No logs to upload"
+          fi
       - name: Terminate Kind cluster and setup for next test
         if: ${{ always() }}
         run: |
-          make kind-cluster-delete
+          # Ensure cluster is properly deleted before proceeding
+          make kind-cluster-delete || echo "Cluster deletion failed or cluster was already deleted"
+          # Wait a moment for cleanup to complete
+          sleep 5
+          # Verify no kind clusters are running
+          if command -v kind >/dev/null 2>&1; then
+            kind get clusters | grep -v "No kind clusters found" || echo "All clusters cleaned up"
+          fi
           export OIDC_IAM_ROLE=arn:aws:iam::783680406432:role/IrsaTestingRole-test-us-east-1
           export OIDC_S3_BUCKET_NAME=aws-privateca-issuer-irsa-test-us-east-1
           echo OIDC_IAM_ROLE=$OIDC_IAM_ROLE >> $GITHUB_ENV
@@ -174,14 +233,22 @@ jobs:
       - name: Copy Kind logs to S3
         if: ${{ always() }}
         run: |
-          mkdir logs-irsa
+          mkdir -p logs-irsa
           export E2E_ARTIFACTS_DIRECTORY=logs-irsa
-          make kind-export-logs
-          aws s3 cp --recursive logs-irsa s3://aws-privateca-issuer-k8s-logs-test-us-east-1/${{ needs.start-runner.outputs.ec2-instance-id }}-irsa/
+          # Try to export logs, but don't fail if it doesn't work
+          make kind-export-logs || echo "Failed to export kind logs, continuing..."
+          # Only upload if logs directory has content
+          if [ "$(ls -A logs-irsa 2>/dev/null)" ]; then
+            aws s3 cp --recursive logs-irsa s3://aws-privateca-issuer-k8s-logs-test-us-east-1/${{ needs.start-runner.outputs.ec2-instance-id }}-irsa/
+          else
+            echo "No logs to upload"
+          fi
       - name: Terminate Kind cluster
         if: ${{ always() }}
         run: |
-          make kind-cluster-delete
+          # Ensure cluster is properly deleted
+          make kind-cluster-delete || echo "Cluster deletion failed or cluster was already deleted"
+          sleep 2
       - name: Run test cases with IAMRA
         if: ${{ always() }}
         run: |
@@ -190,14 +257,22 @@ jobs:
       - name: Copy Kind logs to S3
         if: ${{ always() }}
         run: |
-          mkdir logs-iamra-test
+          mkdir -p logs-iamra-test
           export E2E_ARTIFACTS_DIRECTORY=logs-iamra-test
-          make kind-export-logs
-          aws s3 cp --recursive logs-iamra-test s3://aws-privateca-issuer-k8s-logs-test-us-east-1/${{ needs.start-runner.outputs.ec2-instance-id }}-logs-iamra-test/
+          # Try to export logs, but don't fail if it doesn't work
+          make kind-export-logs || echo "Failed to export kind logs, continuing..."
+          # Only upload if logs directory has content
+          if [ "$(ls -A logs-iamra-test 2>/dev/null)" ]; then
+            aws s3 cp --recursive logs-iamra-test s3://aws-privateca-issuer-k8s-logs-test-us-east-1/${{ needs.start-runner.outputs.ec2-instance-id }}-logs-iamra-test/
+          else
+            echo "No logs to upload"
+          fi
       - name: Terminate Kind cluster
         if: ${{ always() }}
         run: |
-          make kind-cluster-delete
+          # Ensure cluster is properly deleted
+          make kind-cluster-delete || echo "Cluster deletion failed or cluster was already deleted"
+          sleep 2
       - name: Run helm test
         if: ${{ !contains(github.event.pull_request.labels.*.name, 'chart update') && inputs.architecture != 'arm64' }}
         run: |
@@ -205,14 +280,22 @@ jobs:
       - name: Copy Kind logs to S3
         if: ${{ !contains(github.event.pull_request.labels.*.name, 'chart update') && inputs.architecture != 'arm64' }}
         run: |
-          mkdir logs-helm-test
+          mkdir -p logs-helm-test
           export E2E_ARTIFACTS_DIRECTORY=logs-helm-test
-          make kind-export-logs
-          aws s3 cp --recursive logs-helm-test s3://aws-privateca-issuer-k8s-logs-test-us-east-1/${{ needs.start-runner.outputs.ec2-instance-id }}-logs-helm-test/
+          # Try to export logs, but don't fail if it doesn't work
+          make kind-export-logs || echo "Failed to export kind logs, continuing..."
+          # Only upload if logs directory has content
+          if [ "$(ls -A logs-helm-test 2>/dev/null)" ]; then
+            aws s3 cp --recursive logs-helm-test s3://aws-privateca-issuer-k8s-logs-test-us-east-1/${{ needs.start-runner.outputs.ec2-instance-id }}-logs-helm-test/
+          else
+            echo "No logs to upload"
+          fi
       - name: Terminate Kind cluster
         if: ${{ !contains(github.event.pull_request.labels.*.name, 'chart update') && inputs.architecture != 'arm64' }}
         run: |
-          make kind-cluster-delete
+          # Ensure cluster is properly deleted
+          make kind-cluster-delete || echo "Cluster deletion failed or cluster was already deleted"
+          sleep 2
       - name: Run Blog Test
         if: ${{ inputs.architecture != 'arm64' }}
         run: |
@@ -222,10 +305,16 @@ jobs:
       - name: Copy Kind logs to S3
         if: ${{ inputs.architecture != 'arm64' }}
         run: |
-          mkdir logs-blog
+          mkdir -p logs-blog
           export E2E_ARTIFACTS_DIRECTORY=logs-blog
-          make kind-export-logs
-          aws s3 cp --recursive logs-blog s3://aws-privateca-issuer-k8s-logs-test-us-east-1/${{ needs.start-runner.outputs.ec2-instance-id }}-blog/
+          # Try to export logs, but don't fail if it doesn't work
+          make kind-export-logs || echo "Failed to export kind logs, continuing..."
+          # Only upload if logs directory has content
+          if [ "$(ls -A logs-blog 2>/dev/null)" ]; then
+            aws s3 cp --recursive logs-blog s3://aws-privateca-issuer-k8s-logs-test-us-east-1/${{ needs.start-runner.outputs.ec2-instance-id }}-blog/
+          else
+            echo "No logs to upload"
+          fi
 
   stop-runner:
     name: Stop self-hosted EC2 runner
