@@ -1,3 +1,5 @@
+# README TEST
+
 <p align="center"><img src="assets/logo.png" alt="Logo" width="250px" /></p>
 <p align="center">
 <a href="https://goreportcard.com/report/github.com/cert-manager/aws-privateca-issuer">
@@ -258,18 +260,18 @@ Before running ```make cluster``` we will need to do the following:
 {  
   "Version": "2012-10-17",  
   "Statement": [  
-	{  
+        {  
       "Effect": "Allow",  
-	  "Principal": {  
-	    "Federated": "${OIDC_ARN}"  
-	   },  
-	   "Action": "sts:AssumeRoleWithWebIdentity",  
-	   "Condition": {  
-	     "StringEquals": {  
-	       "${OIDC_URL}:sub": "system:serviceaccount:aws-privateca-issuer:aws-privateca-issuer-sa"  
-	     }  
-	   }  
-	 }  
+          "Principal": {  
+            "Federated": "${OIDC_ARN}"  
+           },  
+           "Action": "sts:AssumeRoleWithWebIdentity",  
+           "Condition": {  
+             "StringEquals": {  
+               "${OIDC_URL}:sub": "system:serviceaccount:aws-privateca-issuer:aws-privateca-issuer-sa"  
+             }  
+           }  
+         }  
    ]  
 }
 ```
