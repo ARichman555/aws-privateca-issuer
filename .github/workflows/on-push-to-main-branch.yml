@@ -190,7 +190,7 @@ jobs:
     needs: build-beta-ecr
     runs-on: ubuntu-latest
     env:
-      PRIVATE_REGISTRY: ${{ env.PRIVATE_REGISTRY }}
+      PRIVATE_REGISTRY: ${{ needs.build-beta-ecr.outputs.PRIVATE_REGISTRY }}
     steps:
     - name: Checkout
       uses: actions/checkout@v4
