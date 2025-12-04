@@ -5,6 +5,9 @@ VERSION := $(shell grep '^version:' charts/aws-pca-issuer/Chart.yaml | awk '{pri
 # ECR repository for beta images (can be overridden in CI)
 BETA_REGISTRY ?= public.ecr.aws/c9o0b7e4
 
+# Cache image for Docker builds (uses beta ECR registry)
+CACHE_IMAGE ?= $(BETA_REGISTRY)/cert-manager-aws-privateca-issuer-test:cache
+
 # Default bundle image tag
 BUNDLE_IMG ?= controller-bundle:$(VERSION)
 
@@ -149,7 +152,7 @@ generate: controller-gen
 
 # Build the docker image
 docker-build: test
-	docker build \
+	docker buildx build \
 		--build-arg go_cache=${GOCACHE} \
 		--build-arg go_mod_cache=${GOMODCACHE} \
 		--build-arg pkg_version=${VERSION} \
@@ -157,6 +160,7 @@ docker-build: test
 		--tag ${IMG} \
 		--file Dockerfile \
 		--platform=linux/amd64,linux/arm64 \
+		--cache-from type=registry,ref=${CACHE_IMAGE} \
 		${CURDIR}
 
 # Push the docker image
