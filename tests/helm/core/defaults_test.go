@@ -41,14 +41,24 @@ func TestDefaults(t *testing.T) {
 	// Default image (varies by test mode)
 	container := deployment.Spec.Template.Spec.Containers[0]
 	mode := testutil.GetTestMode()
-	if mode == testutil.BetaMode {
-		privateRegistry := os.Getenv("BETA_REGISTRY")
-		require.NotEmpty(t, privateRegistry, "BETA_REGISTRY environment variable is required for beta mode")
+	if mode == testutil.BetaMode || mode == testutil.ProdMode {
+		var registry, registryVar, suffix, pullPolicy string
+		if mode == testutil.BetaMode {
+			registryVar = "BETA_REGISTRY"
+			suffix = "-test"
+			pullPolicy = "Always"
+		} else {
+			registryVar = "PROD_REGISTRY"
+			pullPolicy = "IfNotPresent"
+		}
+
+		registry = os.Getenv(registryVar)
+		require.NotEmpty(t, registry, registryVar+" environment variable is required")
 		repoName := os.Getenv("GITHUB_REPOSITORY")
-		require.NotEmpty(t, repoName, "GITHUB_REPOSITORY environment variable is required for beta mode")
-		expectedRepo := privateRegistry + "/" + strings.ToLower(strings.ReplaceAll(repoName, "/", "-")) + "-test"
+		require.NotEmpty(t, repoName, "GITHUB_REPOSITORY environment variable is required")
+		expectedRepo := registry + "/" + strings.ToLower(strings.ReplaceAll(repoName, "/", "-")) + suffix
 		assert.Contains(t, container.Image, expectedRepo)
-		assert.Equal(t, "Always", string(container.ImagePullPolicy))
+		assert.Equal(t, pullPolicy, string(container.ImagePullPolicy))
 	} else {
 		assert.Contains(t, container.Image, "localhost:5000/aws-privateca-issuer")
 		assert.Equal(t, "IfNotPresent", string(container.ImagePullPolicy))
