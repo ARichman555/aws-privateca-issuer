@@ -88,9 +88,10 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
       - name: Install Development Tools
         run: |
-          sudo dnf clean all
-          sudo dnf makecache
-          sudo dnf groupinstall "Development Tools" -y
+          sudo yum clean all
+          sudo rm -rf /var/cache/yum/* /var/cache/dnf/*
+          sudo yum update -y
+          sudo yum groupinstall "Development Tools" -y --skip-broken
       - name: Install Go
         run: |
           mkdir /home/ec2-user/.cache
