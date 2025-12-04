@@ -22,9 +22,11 @@ func main() {
 	case "local":
 		image = "localhost:5000/aws-privateca-issuer:latest"
 	case "beta":
-		image = "public.ecr.aws/cert-manager-aws-privateca-issuer/cert-manager-aws-privateca-issuer-test:latest"
+		image = "public.ecr.aws/c9o0b7e4/arichman555-aws-privateca-issuer-test"
+		// image = "public.ecr.aws/cert-manager-aws-privateca-issuer/cert-manager-aws-privateca-issuer-test:latest"
 	case "prod":
-		image = "public.ecr.aws/cert-manager-aws-privateca-issuer/cert-manager-aws-privateca-issuer-test:latest"
+		image = "public.ecr.aws/c9o0b7e4/arichman555-aws-privateca-issuer"
+		// image = "public.ecr.aws/cert-manager-aws-privateca-issuer/cert-manager-aws-privateca-issuer-test:latest"
 	default:
 		fmt.Printf("Error: Invalid STAGE '%s'. Must be one of: local, beta, prod\n", stage)
 		fmt.Println("Usage: go run validate-image-version.go <stage> <version>")
