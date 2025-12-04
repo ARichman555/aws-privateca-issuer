@@ -79,7 +79,10 @@ jobs:
     runs-on: ${{ needs.start-runner.outputs.label }} # run the job on the newly created runner
     steps:
       - name: Install Git
-        run: sudo yum install git -y
+        run: |
+          sudo dnf makecache --refresh
+          sudo dnf clean packages
+          sudo dnf install -y git
       - name: Check out code into the Go module directory
         uses: actions/checkout@v4
         with:
@@ -88,10 +91,8 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
       - name: Install Development Tools
         run: |
-          sudo yum clean all
-          sudo rm -rf /var/cache/yum/* /var/cache/dnf/*
-          sudo yum update -y
-          sudo yum groupinstall "Development Tools" -y --skip-broken
+          sudo dnf clean packages
+          sudo dnf groupinstall "Development Tools" -y --skip-broken
       - name: Install Go
         run: |
           mkdir /home/ec2-user/.cache
