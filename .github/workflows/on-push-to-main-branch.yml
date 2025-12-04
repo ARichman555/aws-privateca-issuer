@@ -138,8 +138,13 @@ jobs:
           ${{ env.TAG_BASE }}:latest
           ${{ env.TAG_BASE }}:${{ env.PLUGIN_VERSION }}
         push: true
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+        cache-from: |
+          type=gha
+          type=registry,ref=${{ env.TAG_BASE }}:buildcache
+        cache-to: |
+          type=gha,mode=max
+          type=registry,ref=${{ env.TAG_BASE }}:buildcache,mode=max
+        provenance: false
 
   version-validation-beta:
     needs: [detect-version-bump-label, build-beta-ecr, determine-version]
@@ -259,8 +264,13 @@ jobs:
             ${{ env.TAG_BASE }}:latest
             ${{ env.TAG_BASE }}:${{ needs.determine-version.outputs.version_to_build }}
           push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: |
+            type=gha
+            type=registry,ref=${{ env.TAG_BASE }}:buildcache
+          cache-to: |
+            type=gha,mode=max
+            type=registry,ref=${{ env.TAG_BASE }}:buildcache,mode=max
+          provenance: false
 
   publish-helm-chart:
     needs: build-public-ecr

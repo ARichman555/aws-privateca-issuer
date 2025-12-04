@@ -6,23 +6,24 @@ ARG TARGETARCH
 ARG TARGETOS
 
 ENV GOPROXY=direct
-# Copy the Go Modules manifests
-COPY go.mod go.mod
-COPY go.sum go.sum
-
-# Copy the go source
-COPY main.go main.go
-COPY pkg/ pkg/
-
 ENV CGO_ENABLED=0
 ENV GOOS=${TARGETOS:-linux}
 ENV GOARCH=${TARGETARCH:-amd64}
 ENV GO111MODULE=on
+
 ARG go_cache=/pkg/go-cache
 ARG go_mod_cache=/pkg/go-mod
 
 RUN go env -w GOCACHE=${go_cache}
 RUN go env -w GOMODCACHE=${go_mod_cache}
+
+# Copy and download dependencies FIRST (cached unless go.mod/go.sum change)
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=${go_mod_cache} go mod download
+
+# Copy the go source
+COPY main.go main.go
+COPY pkg/ pkg/
 
 # Do an initial compilation before setting the version so that there is less to
 # re-compile when the version changes
