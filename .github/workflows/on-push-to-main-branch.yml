@@ -138,20 +138,9 @@ jobs:
           ${{ env.TAG_BASE }}:${{ env.PLUGIN_VERSION }}
         push: true
 
-  should-run-beta-tests:
-    needs: detect-version-bump-label
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check version bump
-        run: |
-          if [ "${{ needs.detect-version-bump-label.outputs.bump_type }}" = "none" ]; then
-            echo "No version bump detected. Stopping workflow."
-            exit 1
-          fi
-          echo "Version bump detected: ${{ needs.detect-version-bump-label.outputs.bump_type }}"
-
   version-validation-beta:
-    needs: [should-run-beta-tests, build-beta-ecr, determine-version]
+    needs: [detect-version-bump-label, build-beta-ecr, determine-version]
+    if: needs.detect-version-bump-label.outputs.bump_type != 'none'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -173,7 +162,8 @@ jobs:
         run: make validate-image-version STAGE=prod VERSION=${{ needs.determine-version.outputs.version_to_build }}
 
   run-for-arm-beta:
-    needs: [should-run-beta-tests, build-beta-ecr]
+    needs: [detect-version-bump-label, build-beta-ecr]
+    if: needs.detect-version-bump-label.outputs.bump_type != 'none'
     runs-on: ubuntu-latest
     steps:
       - name: Run
@@ -185,7 +175,8 @@ jobs:
     #   environment: 'beta'
 
   run-for-x86-beta:
-    needs: [should-run-beta-tests, build-beta-ecr]
+    needs: [detect-version-bump-label, build-beta-ecr]
+    if: needs.detect-version-bump-label.outputs.bump_type != 'none'
     runs-on: ubuntu-latest
     steps:
       - name: Run
@@ -197,7 +188,8 @@ jobs:
     #   environment: 'beta'
 
   run-helm-tests-beta:
-    needs: [should-run-beta-tests, build-beta-ecr]
+    needs: [detect-version-bump-label, build-beta-ecr]
+    if: needs.detect-version-bump-label.outputs.bump_type != 'none'
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
