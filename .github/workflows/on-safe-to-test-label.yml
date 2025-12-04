@@ -130,7 +130,8 @@ jobs:
           key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
       - name: Install Docker
         run: |
-          sudo yum install docker -y
+          sudo dnf clean packages
+          sudo dnf install docker -y
           sudo service docker start
           sudo touch /etc/docker/daemon.json
           sudo echo '{"features": {"containerd-snapshotter": true}}' > /etc/docker/daemon.json
