@@ -343,14 +343,14 @@ deploy-prometheus-crds:
 e2eHelmTest: manager create-local-registry kind-cluster deploy-cert-manager deploy-prometheus-crds
 	cd tests/helm && go mod tidy && go test -v ./core/... ./features/... . -timeout=15m
 
-helmE2ETestLocal: manager create-local-registry kind-cluster deploy-cert-manager deploy-prometheus-crds
-	cd tests/helm && go mod tidy && HELM_TEST_MODE=local go test -v ./core/... ./features/... . -timeout=15m
+helmE2ETestLocal: manager create-local-registry kind-cluster deploy-prometheus-crds
+	cd tests/helm && HELM_TEST_MODE=local go test -v ./core/... ./features/... . -timeout=15m
 
-helmE2ETestBeta: manager kind-cluster deploy-cert-manager deploy-prometheus-crds
-	cd tests/helm && go mod tidy && HELM_TEST_MODE=beta go test -v ./core/... ./features/... . -timeout=15m
+helmE2ETestBeta: manager kind-cluster deploy-prometheus-crds
+	cd tests/helm && HELM_TEST_MODE=beta go test -v ./core/... ./features/... . -timeout=15m
 
-helmE2ETestProd: manager kind-cluster deploy-cert-manager deploy-prometheus-crds
-	cd tests/helm && go mod tidy && HELM_TEST_MODE=prod go test -v ./core/... ./features/... . -timeout=15m
+helmE2ETestProd: manager kind-cluster deploy-prometheus-crds
+	cd tests/helm && HELM_TEST_MODE=prod go test -v ./core/... ./features/... . -timeout=15m
 
 # ==================================
 # Download: tools in ${BIN}
