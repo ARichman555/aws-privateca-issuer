@@ -94,11 +94,11 @@ func (h *TestHelper) InstallChart(values map[string]interface{}) *release.Releas
 			}
 		}
 	} else if mode == BetaMode {
-		// Beta mode: Use PRIVATE_REGISTRY or fail
+		// Beta mode: Use BETA_REGISTRY or fail
 		if _, exists := values["image"]; !exists {
-			privateRegistry := os.Getenv("PRIVATE_REGISTRY")
+			privateRegistry := os.Getenv("BETA_REGISTRY")
 			if privateRegistry == "" {
-				h.T.Fatal("PRIVATE_REGISTRY environment variable is required for beta mode")
+				h.T.Fatal("BETA_REGISTRY environment variable is required for beta mode")
 			}
 			repoName := os.Getenv("GITHUB_REPOSITORY")
 			if repoName == "" {

@@ -5,7 +5,8 @@ on:
     branches: [ main ]
 
 env:
-  ECR_REPO: public.ecr.aws/c9o0b7e4
+  PROD_REGISTRY: public.ecr.aws/c9o0b7e4
+  BETA_REGISTRY: public.ecr.aws/c9o0b7e4
   ECR_USER_AGENT: aws-privateca-issuer
 
 jobs:
@@ -122,7 +123,7 @@ jobs:
     - name: Setup Push to ECR
       run: |
         export PLUGIN_VERSION=${{ needs.determine-version.outputs.version_to_build }}
-        export TAG_BASE=${{ env.ECR_REPO }}/$(echo ${GITHUB_REPOSITORY,,} | sed s#/#-#)-test
+        export TAG_BASE=${{ env.BETA_REGISTRY }}/$(echo ${GITHUB_REPOSITORY,,} | sed s#/#-#)-test
         echo TAG_BASE=$TAG_BASE >> $GITHUB_ENV
         echo PLUGIN_VERSION=$PLUGIN_VERSION >> $GITHUB_ENV
     - name: Build and push container images
@@ -267,7 +268,7 @@ jobs:
           AWS_REGION: us-east-1
       - name: Setup Push to Public ECR
         run: |
-          export TAG_BASE=${{ env.ECR_REPO }}/$(echo ${GITHUB_REPOSITORY,,} | sed s#/#-#)
+          export TAG_BASE=${{ env.PROD_REGISTRY }}/$(echo ${GITHUB_REPOSITORY,,} | sed s#/#-#)
           echo TAG_BASE=$TAG_BASE >> $GITHUB_ENV
       - name: Build and push container images
         uses: docker/build-push-action@v6

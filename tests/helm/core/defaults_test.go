@@ -42,8 +42,8 @@ func TestDefaults(t *testing.T) {
 	container := deployment.Spec.Template.Spec.Containers[0]
 	mode := testutil.GetTestMode()
 	if mode == testutil.BetaMode {
-		privateRegistry := os.Getenv("PRIVATE_REGISTRY")
-		require.NotEmpty(t, privateRegistry, "PRIVATE_REGISTRY environment variable is required for beta mode")
+		privateRegistry := os.Getenv("BETA_REGISTRY")
+		require.NotEmpty(t, privateRegistry, "BETA_REGISTRY environment variable is required for beta mode")
 		repoName := os.Getenv("GITHUB_REPOSITORY")
 		require.NotEmpty(t, repoName, "GITHUB_REPOSITORY environment variable is required for beta mode")
 		expectedRepo := privateRegistry + "/" + strings.ToLower(strings.ReplaceAll(repoName, "/", "-")) + "-test"

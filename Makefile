@@ -2,8 +2,8 @@
 # and which will be used as the Docker image tag
 VERSION := $(shell grep '^version:' charts/aws-pca-issuer/Chart.yaml | awk '{print $$2}' | tr -d '"')
 
-# ECR repository for test images (can be overridden in CI)
-PRIVATE_REGISTRY ?= public.ecr.aws/c9o0b7e4
+# ECR repository for beta images (can be overridden in CI)
+BETA_REGISTRY ?= public.ecr.aws/c9o0b7e4
 
 # Default bundle image tag
 BUNDLE_IMG ?= controller-bundle:$(VERSION)

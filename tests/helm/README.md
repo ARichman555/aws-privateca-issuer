@@ -8,7 +8,7 @@ The test framework uses the same registry environment variables as the CI/CD wor
 
 ### ECR Repository Configuration
 
-- `PRIVATE_REGISTRY`: Beta/test ECR registry (default: `public.ecr.aws/c9o0b7e4`)
+- `BETA_REGISTRY`: Beta/test ECR registry (default: `public.ecr.aws/c9o0b7e4`)
 - `PUBLIC_REGISTRY`: Production ECR registry (default: `public.ecr.aws/c9o0b7e4`)
 - `LOCAL_ECR_REPO`: Local development ECR repository (default: `public.ecr.aws/k1n1h4h4/cert-manager-aws-privateca-issuer`)
 - `LOCAL_ECR_TAG`: Image tag for local testing (default: `v1.2.7`)
