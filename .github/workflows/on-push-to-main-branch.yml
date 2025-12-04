@@ -97,7 +97,6 @@ jobs:
 
   build-beta-ecr:
     needs: determine-version
-    # if: ${{ needs.determine-version.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -122,7 +121,7 @@ jobs:
         AWS_REGION: us-east-1
     - name: Setup Push to ECR
       run: |
-        export PLUGIN_VERSION=$(git describe --tags)
+        export PLUGIN_VERSION=${{ needs.determine-version.outputs.version_to_build }}
         export TAG_BASE=${{ env.ECR_REPO }}/$(echo ${GITHUB_REPOSITORY,,} | sed s#/#-#)-test
         echo TAG_BASE=$TAG_BASE >> $GITHUB_ENV
         echo PLUGIN_VERSION=$PLUGIN_VERSION >> $GITHUB_ENV
@@ -224,7 +223,6 @@ jobs:
 
   update-chart:
     needs: [run-for-arm-beta, run-for-x86-beta, run-helm-tests-beta, version-validation-beta, determine-version]
-    if: ${{ needs.run-for-arm-beta.result == 'success' && needs.run-for-x86-beta.result == 'success' && needs.run-helm-tests-beta.result == 'success' && needs.version-validation-beta.result == 'success' && needs.determine-version.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -247,7 +245,6 @@ jobs:
 
   build-public-ecr:
     needs: update-chart
-    if: ${{ needs.update-chart.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -287,7 +284,6 @@ jobs:
 
   publish-helm-chart:
     needs: build-public-ecr
-    if: ${{ needs.build-public-ecr.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Publish Helm chart
@@ -296,7 +292,6 @@ jobs:
 
   run-for-arm-prod:
     needs: publish-helm-chart
-    if: ${{ needs.publish-helm-chart.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Run
@@ -309,7 +304,6 @@ jobs:
 
   run-for-x86-prod:
     needs: publish-helm-chart
-    if: ${{ needs.publish-helm-chart.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Run
@@ -322,7 +316,6 @@ jobs:
 
   run-helm-tests-prod:
     needs: publish-helm-chart
-    if: ${{ needs.publish-helm-chart.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
@@ -357,7 +350,6 @@ jobs:
 
   release:
     needs: [run-for-arm-prod, run-for-x86-prod, run-helm-tests-prod, version-validation-prod, determine-version]
-    if: ${{ needs.run-for-arm-prod.result == 'success' && needs.run-for-x86-prod.result == 'success' && needs.run-helm-tests-prod.result == 'success' && needs.version-validation-prod.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
