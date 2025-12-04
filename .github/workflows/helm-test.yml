@@ -1,10 +1,8 @@
 name: Helm Chart End-to-End Tests
 
 on:
-  push:
-    branches: [main, helm-testing-implementation]
   pull_request:
-    branches: [main, helm-testing-implementation]
+    branches: [main]
   workflow_call:
     inputs:
       stage:
