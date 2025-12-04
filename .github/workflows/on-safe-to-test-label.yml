@@ -89,6 +89,7 @@ jobs:
       - name: Install Development Tools
         run: |
           sudo yum clean all
+          sudo yum clean packages
           sudo yum groupinstall "Development Tools" -y
       - name: Install Go
         run: |
