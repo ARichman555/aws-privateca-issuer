@@ -1,6 +1,12 @@
 # The version which will be reported by the --version argument of each binary
 # and which will be used as the Docker image tag
-VERSION := $(shell git remote add mainRepo https://github.com/cert-manager/aws-privateca-issuer.git && git fetch mainRepo --tags && git describe --tags | awk -F"-" '{print $$1}' && git remote remove mainRepo)
+VERSION := $(shell grep '^version:' charts/aws-pca-issuer/Chart.yaml | awk '{print $$2}' | tr -d '"')
+
+# ECR repository for beta images (can be overridden in CI)
+BETA_REGISTRY ?= public.ecr.aws/c9o0b7e4
+
+# Cache image for Docker builds (uses beta ECR registry)
+CACHE_IMAGE ?= $(BETA_REGISTRY)/cert-manager-aws-privateca-issuer-test:cache
 
 # Default bundle image tag
 BUNDLE_IMG ?= controller-bundle:$(VERSION)
@@ -76,8 +82,13 @@ e2etest: test
 	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.0/hack/setup-envtest.sh
 	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test -v ./e2e/... -coverprofile cover.out
 
-helm-test: manager kind-cluster
-	$$SHELL e2e/helm_test.sh
+helm-test: manager kind-cluster deploy-cert-manager
+	@if [ -d "tests/helm" ]; then \
+		cd tests/helm && go mod tidy && go test -v ./core/... ./features/... . -timeout=15m; \
+	else \
+		echo "Helm tests not available - tests/helm directory not found"; \
+		echo "Skipping helm tests"; \
+	fi
 
 blog-test:
 	$$SHELL e2e/blog_test.sh
@@ -132,12 +143,8 @@ fmt: goimports-tool
 vet:
 	go vet ./...
 
-lint:
-	echo "Linter is deprecated with go1.18!"
-
-#lint: golangci-lint golint
-	#$(GOLANGCILINT) run --timeout 10m
-	#$(GOLINT) ./...
+lint: golangci-lint
+	$(GOLANGCILINT) run --timeout 10m
 
 # Generate code
 generate: controller-gen
@@ -145,7 +152,7 @@ generate: controller-gen
 
 # Build the docker image
 docker-build: test
-	docker build \
+	docker buildx build \
 		--build-arg go_cache=${GOCACHE} \
 		--build-arg go_mod_cache=${GOMODCACHE} \
 		--build-arg pkg_version=${VERSION} \
@@ -153,6 +160,7 @@ docker-build: test
 		--tag ${IMG} \
 		--file Dockerfile \
 		--platform=linux/amd64,linux/arm64 \
+		--cache-from type=registry,ref=${CACHE_IMAGE} \
 		${CURDIR}
 
 # Push the docker image
@@ -176,14 +184,10 @@ KUSTOMIZE = $(shell pwd)/bin/kustomize
 kustomize:
 	$(call go-install-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v3@v3.8.7)
 
-GOLINT = $(shell pwd)/bin/golint
-golint:
-	echo "golint is deprecated, skipping"
-	#$(call go-install-tool,$(GOLINT),golang.org/x/lint/golint)
-
 GOLANGCILINT = $(shell pwd)/bin/golangci-lint
 golangci-lint:
-	$(call go-install-tool,$(GOLANGCILINT),github.com/golangci/golangci-lint/cmd/golangci-lint@v1.35.2)
+	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | \
+		sh -s -- -b $(shell pwd)/bin v2.6.2
 
 # go-install-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
@@ -293,7 +297,7 @@ kind-export-logs:
 .PHONY: deploy-cert-manager
 deploy-cert-manager: ## Deploy cert-manager in the configured Kubernetes cluster in ~/.kube/config
 	helm repo add jetstack https://charts.jetstack.io --force-update
-	helm install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --version ${CERT_MANAGER_VERSION} --set crds.enabled=true --set config.apiVersion=controller.config.cert-manager.io/v1alpha1 --set config.kind=ControllerConfiguration --set config.kubernetesAPIQPS=10000 --set config.kubernetesAPIBurst=10000 --kubeconfig=${TEST_KUBECONFIG_LOCATION}
+	helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --version ${CERT_MANAGER_VERSION} --set crds.enabled=true --set config.apiVersion=controller.config.cert-manager.io/v1alpha1 --set config.kind=ControllerConfiguration --set config.kubernetesAPIQPS=10000 --set config.kubernetesAPIBurst=10000 --kubeconfig=${TEST_KUBECONFIG_LOCATION}
 	kubectl wait --for=condition=Available --timeout=300s apiservice v1.cert-manager.io --kubeconfig=${TEST_KUBECONFIG_LOCATION}
 
 .PHONY: install-local
@@ -305,12 +309,19 @@ install-local: docker-build docker-push-local
 	--set image.repository=${LOCAL_IMAGE} --set image.tag=latest --set image.pullPolicy=Always
 
 .PHONY: install-beta-ecr
-install-beta-ecr: 
-	#install plugin from local docker repo
+install-beta-ecr:
 	sleep 15
 	helm install issuer ./charts/aws-pca-issuer -n ${NAMESPACE} \
 	--set serviceAccount.create=false --set serviceAccount.name=${SERVICE_ACCOUNT} \
 	--set image.repository=public.ecr.aws/cert-manager-aws-privateca-issuer/cert-manager-aws-privateca-issuer-test \
+	--set image.tag=latest --set image.pullPolicy=Always
+
+.PHONY: install-prod-ecr
+install-prod-ecr:
+	sleep 15
+    helm repo add awspca https://cert-manager.github.io/aws-privateca-issuer
+	helm install issuer awspca/aws-privateca-issuer -n ${NAMESPACE}
+	--set serviceAccount.create=false --set serviceAccount.name=${SERVICE_ACCOUNT} \
 	--set image.tag=latest --set image.pullPolicy=Always
 
 .PHONY: uninstall-local
@@ -326,6 +337,25 @@ cluster: manager create-local-registry kind-cluster deploy-cert-manager install-
 
 .PHONY: cluster-beta
 cluster-beta: manager kind-cluster deploy-cert-manager install-beta-ecr
+
+.PHONY: cluster-prod
+cluster-prod: manager kind-cluster deploy-cert-manager install-prod-ecr
+
+deploy-prometheus-crds:
+	kubectl apply --server-side -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.68.0/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml --kubeconfig=/tmp/pca_kubeconfig
+
+e2eHelmTest: manager create-local-registry kind-cluster deploy-cert-manager deploy-prometheus-crds
+	cd tests/helm && go mod tidy && go test -v ./core/... ./features/... . -timeout=15m
+
+helmE2ETestLocal: manager create-local-registry kind-cluster deploy-prometheus-crds
+	cd tests/helm && HELM_TEST_MODE=local go test -v ./core/... ./features/... . -timeout=15m
+
+helmE2ETestBeta: manager kind-cluster deploy-prometheus-crds
+	cd tests/helm && HELM_TEST_MODE=beta go test -v ./core/... ./features/... . -timeout=15m
+
+helmE2ETestProd: manager kind-cluster deploy-prometheus-crds
+	cd tests/helm && HELM_TEST_MODE=prod go test -v ./core/... ./features/... . -timeout=15m
+
 # ==================================
 # Download: tools in ${BIN}
 # ==================================
@@ -335,3 +365,11 @@ ${BIN}:
 ${KIND}: ${BIN}
 	curl -sSL -o ${KIND} https://github.com/kubernetes-sigs/kind/releases/download/v${KIND_VERSION}/kind-${OS}-${ARCH}
 	chmod +x ${KIND}
+
+# ==================================
+# Image Version Validation
+# ==================================
+
+.PHONY: validate-image-version
+validate-image-version: ## Validate version tags in container images by stage
+	@go run cmd/validate-image-version/main.go $(STAGE) $(VERSION)

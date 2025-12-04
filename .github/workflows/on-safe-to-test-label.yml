@@ -1,17 +1,31 @@
 name: RunTestForArchitecture
 
 on:
+  workflow_dispatch:
+    inputs:
+      architecture:
+        required: true
+        type: string
+      environment:
+        required: false
+        type: string
+        default: 'local'
   workflow_call:
     inputs:
       architecture:
         required: true
         type: string
+      environment:
+        required: false
+        type: string
+        default: 'local'
 
 env:
   AWS_CLI_ARCHITECTURE: ${{ inputs.architecture == 'arm64' && 'aarch64' || 'x86_64' }}
   EC2_INSTANCE_TYPE: ${{ inputs.architecture == 'arm64' && 'c7gn.xlarge' || 'c7a.xlarge' }}
   GO_ARCHITECTURE: ${{ inputs.architecture == 'arm64' && 'arm64' || 'amd64' }}
   KUBECTL_ARCHITECTURE: $GO_ARCHITECTURE
+  CLUSTER_TARGET: ${{ inputs.environment == 'local' && 'cluster' || format('cluster-{0}', inputs.environment) }}
 
 jobs:
   start-runner:
@@ -26,12 +40,13 @@ jobs:
       - name: Setup AWS Credentials
         uses: aws-actions/configure-aws-credentials@master
         with:
-          role-to-assume: arn:aws:iam::783680406432:role/GithubActionsTestingRole-test-us-east-1
+          role-to-assume: arn:aws:iam::905418208571:role/GithubActionsTestingRole-wrichman-us-east-1
           aws-region: us-east-1
       - name: Configure EC2 Runner Parameters
         run: |
           AWS_REGION=us-east-1
           VPC_ID=$(aws ec2 describe-vpcs --filters 'Name=tag-key,Values=GithubActionsTesting' --query 'Vpcs[0].VpcId' --output text)
+          echo $VPC_ID
           SG_ID=$(aws ec2 describe-security-groups --filters "Name=vpc-id,Values=$VPC_ID" "Name=tag-key,Values=GithubActionsTesting" --query 'SecurityGroups[0].GroupId' --output text)
           AMI=$(aws ssm get-parameter --name /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-${{ inputs.architecture }} --query 'Parameter.Value' --output text)
           echo AWS_REGION=$AWS_REGION >> $GITHUB_ENV
@@ -43,13 +58,13 @@ jobs:
         uses: aws-pca-k8s-plugin-ops-admin/ec2-github-runner@001b8975c07ebdbc838650b9ff7635735f915c5f
         with:
           mode: start
-          github-token: GithubToken-test-us-east-1
+          github-token: GithubToken-wrichman-us-east-1
           ec2-image-id: ${{ env.AMI }}
           ec2-instance-type: ${{ env.EC2_INSTANCE_TYPE }}
           vpc-id: ${{ env.VPC_ID }}
           security-group-id: ${{ env.SG_ID }}
-          iam-role-name: K8sPluginInstanceProfile-test-us-east-1
-          ec2-launch-template: GithubRunnerLaunchTemplate-test-us-east-1
+          iam-role-name: K8sPluginInstanceProfile-wrichman-us-east-1
+          ec2-launch-template: GithubRunnerLaunchTemplate-wrichman-us-east-1
           aws-resource-tags: >
             [
               {"Key": "Name", "Value": "ec2-github-runner"},
@@ -59,7 +74,6 @@ jobs:
             sudo yum install libicu -y
 
   do-the-job:
-    if: ${{ (contains(github.event.pull_request.labels.*.name, 'safe to test') && !contains(github.event.pull_request.labels.*.name, 'lgtm')) || (contains(github.event_name, 'workflow_dispatch')) }}
     name: Do the job on the runner
     needs: start-runner # required to start the main job when the runner is ready
     runs-on: ${{ needs.start-runner.outputs.label }} # run the job on the newly created runner
@@ -74,7 +88,9 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
       - name: Install Development Tools
         run: |
-          sudo yum groupinstall "Development Tools" -y
+          sudo dnf clean all
+          sudo dnf makecache
+          sudo dnf groupinstall "Development Tools" -y
       - name: Install Go
         run: |
           mkdir /home/ec2-user/.cache
@@ -136,14 +152,12 @@ jobs:
       - name: Setup test environment
         run: |
           export PLUGIN_USER_NAME_OVERRIDE=K8sPluginUser-test-us-east-1
-          export PLUGIN_CROSS_ACCOUNT_ROLE=arn:aws:iam::874411242420:role/CrossAccountTestingRole-crossaccount-us-east-1
           export HOME=$GITHUB_WORKSPACE
           echo PLUGIN_USER_NAME_OVERRIDE=$PLUGIN_USER_NAME_OVERRIDE >> $GITHUB_ENV
-          echo PLUGIN_CROSS_ACCOUNT_ROLE=$PLUGIN_CROSS_ACCOUNT_ROLE >> $GITHUB_ENV
           echo HOME=$HOME >> $GITHUB_ENV
       - name: Run test cases with EC2 Instance Profiles and K8s Secret
         run: |
-          make cluster
+          make ${{ env.CLUSTER_TARGET }}
           make e2etest
       - name: Copy Kind logs to S3
         if: ${{ always() }}
@@ -163,7 +177,7 @@ jobs:
       - name: Run test cases with IRSA and K8s Secret
         if: ${{ always() }}
         run: |
-          make cluster
+          make ${{ env.CLUSTER_TARGET }}
           make install-eks-webhook
           make e2etest
       - name: Copy Kind logs to S3
@@ -211,7 +225,7 @@ jobs:
       - name: Run Blog Test
         if: ${{ inputs.architecture != 'arm64' }}
         run: |
-          make cluster
+          make ${{ env.CLUSTER_TARGET }}
           make install-eks-webhook
           make blog-test
       - name: Copy Kind logs to S3
@@ -231,12 +245,12 @@ jobs:
     permissions:
       id-token: write
       contents: read
-    if: ${{ (contains(github.event.pull_request.labels.*.name, 'safe to test') && !contains(github.event.pull_request.labels.*.name, 'lgtm') && always()) || (contains(github.event_name, 'workflow_dispatch')) }} # required to stop the runner even if the error happened in the previous jobs
+    if: ${{ always() }} # required to stop the runner even if the error happened in the previous jobs
     steps:
       - name: Setup AWS Credentials
         uses: aws-actions/configure-aws-credentials@master
         with:
-          role-to-assume: arn:aws:iam::783680406432:role/GithubActionsTestingRole-test-us-east-1
+          role-to-assume: arn:aws:iam::905418208571:role/GithubActionsTestingRole-wrichman-us-east-1
           aws-region: us-east-1
       - name: Setup AWS Region
         run: |
@@ -246,6 +260,6 @@ jobs:
         uses: aws-pca-k8s-plugin-ops-admin/ec2-github-runner@001b8975c07ebdbc838650b9ff7635735f915c5f
         with:
           mode: stop
-          github-token: GithubToken-test-us-east-1
+          github-token: GithubToken-wrichman-us-east-1
           label: ${{ needs.start-runner.outputs.label }}
           ec2-instance-id: ${{ needs.start-runner.outputs.ec2-instance-id }}
