@@ -297,3 +297,23 @@ jobs:
           tag_name: ${{ needs.determine-version.outputs.version_to_build }}
           name: Release ${{ needs.determine-version.outputs.version_to_build }}
           generate_release_notes: true
+
+  report-failure:
+    needs: [build-public-ecr, publish-helm-chart, run-for-arm-prod, run-for-x86-prod, run-helm-tests-prod, version-validation-prod, release]
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create Issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Release workflow failed for PR #${{ github.event.pull_request.number }}`,
+              body: `The release workflow failed after build-public-ecr.\n\n**PR:** #${{ github.event.pull_request.number }}\n**Run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\n**Commit:** ${{ github.sha }}\n\nPlease investigate the failed steps.`,
+              labels: ['bug', 'ci']
+            })
