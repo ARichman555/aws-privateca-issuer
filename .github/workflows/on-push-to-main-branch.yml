@@ -245,7 +245,7 @@ jobs:
           git push
 
   build-public-ecr:
-    needs: update-chart
+    needs: [determine-version, update-chart]
     runs-on: ubuntu-latest
     permissions:
       id-token: write
