@@ -5,55 +5,11 @@ on:
     branches: [ main ]
 
 env:
-  PRIVATE_REGISTRY: public.ecr.aws/c9o0b7e4
-  PUBLIC_REGISTRY: public.ecr.aws/c9o0b7e4
+  ECR_REPO: public.ecr.aws/c9o0b7e4
   ECR_USER_AGENT: aws-privateca-issuer
 
 jobs:
-  build-beta-ecr:
-    needs: get-versions
-    if: ${{ needs.get-versions.result == 'success' }}
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
-    steps:
-    - name: Check out code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-    - name: Setup Dockerx
-      uses: docker/setup-buildx-action@v1
-    - name: Setup AWS Credentials
-      uses: aws-actions/configure-aws-credentials@master
-      with:
-        role-to-assume: arn:aws:iam::905418208571:role/GithubActionsPublishRole-wrichman-us-east-1
-        aws-region: us-east-1
-    - name: Login to Public ECR
-      uses: docker/login-action@v1
-      with:
-        registry: public.ecr.aws
-      env:
-        AWS_REGION: us-east-1
-    - name: Setup Push to ECR
-      run: |
-        export PLUGIN_VERSION=$(git describe --tags)
-        export TAG_BASE=${{ env.PRIVATE_REGISTRY }}/$(echo ${GITHUB_REPOSITORY,,} | sed s#/#-#)-test
-        echo TAG_BASE=$TAG_BASE >> $GITHUB_ENV
-        echo PLUGIN_VERSION=$PLUGIN_VERSION >> $GITHUB_ENV
-    - name: Build and push container images
-      uses: docker/build-push-action@v6
-      with:
-        build-args: |
-          pkg_version=${{ env.PLUGIN_VERSION }}
-        context: .
-        platforms: linux/amd64,linux/arm64
-        tags: |
-          ${{ env.TAG_BASE }}:latest
-          ${{ env.TAG_BASE }}:${{ env.PLUGIN_VERSION }}
-        push: true
-
-  version-bump:
+  detect-version-bump-label:
     runs-on: ubuntu-latest
     outputs:
       bump_type: ${{ steps.pr_labels.outputs.bump_type }}
@@ -95,12 +51,11 @@ jobs:
         run: |
           echo "No version bump label found. Skipping version update."
 
-  get-versions:
+  determine-version:
     runs-on: ubuntu-latest
-    needs: version-bump
-    if: ${{ needs.version-bump.outputs.bump_type != 'none' }}
+    needs: detect-version-bump-label
     outputs:
-      new_version: ${{ steps.bump_version.outputs.new_version }}
+      version_to_build: ${{ steps.bump_version.outputs.new_version }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -119,7 +74,7 @@ jobs:
         id: bump_version
         run: |
           CURRENT="${{ steps.get_version.outputs.current_version }}"
-          BUMP_TYPE="${{ needs.version-bump.outputs.bump_type }}"
+          BUMP_TYPE="${{ needs.detect-version-bump-label.outputs.bump_type }}"
           
           CURRENT=${CURRENT#v}
           
@@ -140,8 +95,63 @@ jobs:
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "version_number=${MAJOR}.${MINOR}.${PATCH}" >> $GITHUB_OUTPUT
 
+  build-beta-ecr:
+    needs: determine-version
+    # if: ${{ needs.determine-version.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - name: Setup Dockerx
+      uses: docker/setup-buildx-action@v1
+    - name: Setup AWS Credentials
+      uses: aws-actions/configure-aws-credentials@master
+      with:
+        role-to-assume: arn:aws:iam::905418208571:role/GithubActionsPublishRole-wrichman-us-east-1
+        aws-region: us-east-1
+    - name: Login to Public ECR
+      uses: docker/login-action@v1
+      with:
+        registry: public.ecr.aws
+      env:
+        AWS_REGION: us-east-1
+    - name: Setup Push to ECR
+      run: |
+        export PLUGIN_VERSION=$(git describe --tags)
+        export TAG_BASE=${{ env.ECR_REPO }}/$(echo ${GITHUB_REPOSITORY,,} | sed s#/#-#)-test
+        echo TAG_BASE=$TAG_BASE >> $GITHUB_ENV
+        echo PLUGIN_VERSION=$PLUGIN_VERSION >> $GITHUB_ENV
+    - name: Build and push container images
+      uses: docker/build-push-action@v6
+      with:
+        build-args: |
+          pkg_version=${{ env.PLUGIN_VERSION }}
+        context: .
+        platforms: linux/amd64,linux/arm64
+        tags: |
+          ${{ env.TAG_BASE }}:latest
+          ${{ env.TAG_BASE }}:${{ env.PLUGIN_VERSION }}
+        push: true
+
+  should-run-beta-tests:
+    needs: detect-version-bump-label
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check version bump
+        run: |
+          if [ "${{ needs.detect-version-bump-label.outputs.bump_type }}" = "none" ]; then
+            echo "No version bump detected. Stopping workflow."
+            exit 1
+          fi
+          echo "Version bump detected: ${{ needs.detect-version-bump-label.outputs.bump_type }}"
+
   version-validation-beta:
-    needs: [build-beta-ecr, get-versions]
+    needs: [should-run-beta-tests, build-beta-ecr, determine-version]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -149,10 +159,10 @@ jobs:
         with:
           go-version: '1.21'
       - name: Validate Beta Image Version
-        run: make validate-image-version STAGE=beta VERSION=${{ needs.get-versions.outputs.new_version }}
+        run: make validate-image-version STAGE=beta VERSION=${{ needs.determine-version.outputs.version_to_build }}
 
   version-validation-prod:
-    needs: [publish-helm-chart, get-versions]
+    needs: [publish-helm-chart, determine-version]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -160,10 +170,10 @@ jobs:
         with:
           go-version: '1.21'
       - name: Validate Prod Image Version
-        run: make validate-image-version STAGE=prod VERSION=${{ needs.get-versions.outputs.new_version }}
+        run: make validate-image-version STAGE=prod VERSION=${{ needs.determine-version.outputs.version_to_build }}
 
   run-for-arm-beta:
-    needs: build-beta-ecr
+    needs: [should-run-beta-tests, build-beta-ecr]
     runs-on: ubuntu-latest
     steps:
       - name: Run
@@ -175,7 +185,7 @@ jobs:
     #   environment: 'beta'
 
   run-for-x86-beta:
-    needs: build-beta-ecr
+    needs: [should-run-beta-tests, build-beta-ecr]
     runs-on: ubuntu-latest
     steps:
       - name: Run
@@ -187,7 +197,7 @@ jobs:
     #   environment: 'beta'
 
   run-helm-tests-beta:
-    needs: build-beta-ecr
+    needs: [should-run-beta-tests, build-beta-ecr]
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
@@ -221,8 +231,8 @@ jobs:
       run: make kind-cluster-delete
 
   update-chart:
-    needs: [run-for-arm-beta, run-for-x86-beta, run-helm-tests-beta, version-validation-beta, get-versions]
-    if: ${{ needs.run-for-arm-beta.result == 'success' && needs.run-for-x86-beta.result == 'success' && needs.run-helm-tests-beta.result == 'success' && needs.version-validation-beta.result == 'success' && needs.get-versions.result == 'success' }}
+    needs: [run-for-arm-beta, run-for-x86-beta, run-helm-tests-beta, version-validation-beta, determine-version]
+    if: ${{ needs.run-for-arm-beta.result == 'success' && needs.run-for-x86-beta.result == 'success' && needs.run-helm-tests-beta.result == 'success' && needs.version-validation-beta.result == 'success' && needs.determine-version.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -232,7 +242,7 @@ jobs:
           ssh-key: ${{ secrets.DEPLOY_KEY }}
       - name: Modify chart
         run: |
-          NEW_VERSION="${{ needs.get-versions.outputs.new_version }}"
+          NEW_VERSION="${{ needs.determine-version.outputs.version_to_build }}"
           sed -i "s/^version: .*/version: ${NEW_VERSION}/" charts/aws-pca-issuer/Chart.yaml
           sed -i "s/^appVersion: .*/appVersion: ${NEW_VERSION}/" charts/aws-pca-issuer/Chart.yaml
       - name: Push changes
@@ -240,7 +250,7 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add .
-          git commit -m "Update chart version to ${{ needs.get-versions.outputs.new_version }}" --signoff
+          git commit -m "Update chart version to ${{ needs.determine-version.outputs.version_to_build }}" --signoff
           git push
 
   build-public-ecr:
@@ -268,19 +278,19 @@ jobs:
           AWS_REGION: us-east-1
       - name: Setup Push to Public ECR
         run: |
-          export TAG_BASE=${{ env.PUBLIC_REGISTRY }}/$(echo ${GITHUB_REPOSITORY,,} | sed s#/#-#)
+          export TAG_BASE=${{ env.ECR_REPO }}/$(echo ${GITHUB_REPOSITORY,,} | sed s#/#-#)
           echo TAG_BASE=$TAG_BASE >> $GITHUB_ENV
       - name: Build and push container images
         uses: docker/build-push-action@v6
         with:
           build-args: |
-            pkg_version=${{ needs.get-versions.outputs.new_version }}
+            pkg_version=${{ needs.determine-version.outputs.version_to_build }}
             user_agent=${{ env.ECR_USER_AGENT }}
           context: .
           platforms: linux/amd64,linux/arm64
           tags: |
             ${{ env.TAG_BASE }}:latest
-            ${{ env.TAG_BASE }}:${{ needs.get-versions.outputs.new_version }}
+            ${{ env.TAG_BASE }}:${{ needs.determine-version.outputs.version_to_build }}
           push: true
 
   publish-helm-chart:
@@ -354,7 +364,7 @@ jobs:
       run: make kind-cluster-delete
 
   release:
-    needs: [run-for-arm-prod, run-for-x86-prod, run-helm-tests-prod, version-validation-prod, get-versions]
+    needs: [run-for-arm-prod, run-for-x86-prod, run-helm-tests-prod, version-validation-prod, determine-version]
     if: ${{ needs.run-for-arm-prod.result == 'success' && needs.run-for-x86-prod.result == 'success' && needs.run-helm-tests-prod.result == 'success' && needs.version-validation-prod.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
@@ -363,6 +373,6 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ needs.get-versions.outputs.new_version }}
-          name: Release ${{ needs.get-versions.outputs.new_version }}
+          tag_name: ${{ needs.determine-version.outputs.version_to_build }}
+          name: Release ${{ needs.determine-version.outputs.version_to_build }}
           generate_release_notes: true
