@@ -23,31 +23,27 @@ jobs:
 
       - name: Get PR labels
         id: pr_labels
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const commits = await github.rest.repos.listPullRequestsAssociatedWithCommit({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              commit_sha: context.sha
-            });
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "bump_type=none" >> $GITHUB_OUTPUT
 
-            core.info('Commit: ' + context.sha);
-            core.info('Commits: ' + commits.data);
-            core.setOutput('bump_type', 'none');
-            if (commits.data.length > 0) {
-              const labels = commits.data[0].labels.map(label => label.name);
-              core.info('PR Labels:' + labels);
+          PR_JSON=$(gh pr list --search "${{ github.sha }}" --state merged --json number,labels --limit 1)
 
-              const hasMinor = labels.includes('Minor Version');
-              const hasPatch = labels.includes('Patch');
+          if [ "$PR_JSON" = "[]" ]; then
+            echo "No PR found for commit ${{ github.sha }}"
+            exit 0
+          fi
 
-              if (hasMinor) {
-                core.setOutput('bump_type', 'minor');
-              } else if (hasPatch) {
-                core.setOutput('bump_type', 'patch');
-              }
-            }
+          echo "PR data: $PR_JSON"
+          LABELS=$(echo "$PR_JSON" | jq -r '.[0].labels[].name' 2>/dev/null || echo "")
+          echo "Labels: $LABELS"
+
+          if echo "$LABELS" | grep -q "Minor Version"; then
+            echo "bump_type=minor" >> $GITHUB_OUTPUT
+          elif echo "$LABELS" | grep -q "Patch"; then
+            echo "bump_type=patch" >> $GITHUB_OUTPUT
+          fi
       - name: No version bump
         if: steps.pr_labels.outputs.bump_type == 'none'
         run: |
