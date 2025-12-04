@@ -14,7 +14,6 @@ on:
         description: 'Stage to run tests against (local, beta, or prod)'
 
 env:
-  PROD_REGISTRY: public.ecr.aws/c9o0b7e4
   BETA_REGISTRY: public.ecr.aws/c9o0b7e4
 
 jobs:

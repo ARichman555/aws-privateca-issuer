@@ -41,24 +41,24 @@ func TestDefaults(t *testing.T) {
 	// Default image (varies by test mode)
 	container := deployment.Spec.Template.Spec.Containers[0]
 	mode := testutil.GetTestMode()
-	if mode == testutil.BetaMode || mode == testutil.ProdMode {
-		var registry, registryVar, suffix, pullPolicy string
-		if mode == testutil.BetaMode {
-			registryVar = "BETA_REGISTRY"
-			suffix = "-test"
-			pullPolicy = "Always"
-		} else {
-			registryVar = "PROD_REGISTRY"
-			pullPolicy = "IfNotPresent"
-		}
-
-		registry = os.Getenv(registryVar)
-		require.NotEmpty(t, registry, registryVar+" environment variable is required")
+	if mode == testutil.BetaMode {
+		registry := os.Getenv("BETA_REGISTRY")
+		require.NotEmpty(t, registry, "BETA_REGISTRY environment variable is required")
 		repoName := os.Getenv("GITHUB_REPOSITORY")
 		require.NotEmpty(t, repoName, "GITHUB_REPOSITORY environment variable is required")
-		expectedRepo := registry + "/" + strings.ToLower(strings.ReplaceAll(repoName, "/", "-")) + suffix
+
+		expectedRepo := registry + "/" + strings.ToLower(strings.ReplaceAll(repoName, "/", "-")) + "-test"
 		assert.Contains(t, container.Image, expectedRepo)
-		assert.Equal(t, pullPolicy, string(container.ImagePullPolicy))
+		assert.Equal(t, "Always", string(container.ImagePullPolicy))
+	} else if mode == testutil.ProdMode {
+		// The prod helm test should always check against the real helm chart, which is linked to the real prod ECR
+		// This is only relevant when developing in a fork with a dev ECR as "prod"
+		registry = "public.ecr.aws/k1n1h4h4"
+		repoName = "cert-manager/aws-privateca-issuer"
+
+		expectedRepo := registry + "/" + strings.ToLower(strings.ReplaceAll(repoName, "/", "-"))
+		assert.Contains(t, container.Image, expectedRepo)
+		assert.Equal(t, "IfNotPresent", string(container.ImagePullPolicy))
 	} else {
 		assert.Contains(t, container.Image, "localhost:5000/aws-privateca-issuer")
 		assert.Equal(t, "IfNotPresent", string(container.ImagePullPolicy))
