@@ -116,12 +116,8 @@ jobs:
           ${{ env.TAG_BASE }}:latest
           ${{ env.TAG_BASE }}:${{ env.PLUGIN_VERSION }}
         push: true
-        cache-from: |
-          type=gha,scope=build-${{ github.ref_name }}
-          type=registry,ref=${{ env.TAG_BASE }}:cache
-        cache-to: |
-          type=gha,mode=max,scope=build-${{ github.ref_name }}
-          type=registry,ref=${{ env.TAG_BASE }}:cache,mode=max,image-manifest=true
+        cache-from: type=registry,ref=${{ env.TAG_BASE }}:cache
+        cache-to: type=registry,ref=${{ env.TAG_BASE }}:cache,mode=max,image-manifest=true
         provenance: false
 
   version-validation-beta:
@@ -242,12 +238,8 @@ jobs:
             ${{ env.TAG_BASE }}:latest
             ${{ env.TAG_BASE }}:${{ needs.determine-version.outputs.version_to_build }}
           push: true
-          cache-from: |
-            type=gha,scope=build-${{ github.ref_name }}
-            type=registry,ref=${{ env.TAG_BASE }}:cache
-          cache-to: |
-            type=gha,mode=max,scope=build-${{ github.ref_name }}
-            type=registry,ref=${{ env.TAG_BASE }}:cache,mode=max,image-manifest=true
+          cache-from: type=registry,ref=${{ env.TAG_BASE }}:cache
+          cache-to: type=registry,ref=${{ env.TAG_BASE }}:cache,mode=max,image-manifest=true
           provenance: false
 
   publish-helm-chart:
