@@ -148,15 +148,10 @@ jobs:
   run-for-arm-beta:
     needs: [detect-version-bump-label, build-beta-ecr]
     if: needs.detect-version-bump-label.outputs.bump_type != 'none'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Run
-        run: |
-          echo "Done"
-    # uses: './.github/workflows/on-safe-to-test-label.yml'
-    # with:
-    #   architecture: 'arm64'
-    #   environment: 'beta'
+    uses: './.github/workflows/on-safe-to-test-label.yml'
+    with:
+      architecture: 'arm64'
+      environment: 'beta'
 
   run-for-x86-beta:
     needs: [detect-version-bump-label, build-beta-ecr]
