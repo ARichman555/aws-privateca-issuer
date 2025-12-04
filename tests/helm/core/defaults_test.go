@@ -53,8 +53,8 @@ func TestDefaults(t *testing.T) {
 	} else if mode == testutil.ProdMode {
 		// The prod helm test should always check against the real helm chart, which is linked to the real prod ECR
 		// This is only relevant when developing in a fork with a dev ECR as "prod"
-		registry = "public.ecr.aws/k1n1h4h4"
-		repoName = "cert-manager/aws-privateca-issuer"
+		registry := "public.ecr.aws/k1n1h4h4"
+		repoName := "cert-manager/aws-privateca-issuer"
 
 		expectedRepo := registry + "/" + strings.ToLower(strings.ReplaceAll(repoName, "/", "-"))
 		assert.Contains(t, container.Image, expectedRepo)
