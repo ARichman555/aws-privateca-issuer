@@ -189,8 +189,6 @@ jobs:
   run-helm-tests-beta:
     needs: build-beta-ecr
     runs-on: ubuntu-latest
-    env:
-      PRIVATE_REGISTRY: ${{ needs.build-beta-ecr.outputs.PRIVATE_REGISTRY }}
     steps:
     - name: Checkout
       uses: actions/checkout@v4
