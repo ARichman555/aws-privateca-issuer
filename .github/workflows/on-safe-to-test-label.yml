@@ -70,8 +70,6 @@ jobs:
               {"Key": "Name", "Value": "ec2-github-runner"},
               {"Key": "GitHubRepository", "Value": "${{ github.repository }}"}
             ]
-          pre-runner-script: |
-            cloud-init status --wait || true
 
   do-the-job:
     name: Do the job on the runner
