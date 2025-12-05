@@ -71,7 +71,8 @@ jobs:
               {"Key": "GitHubRepository", "Value": "${{ github.repository }}"}
             ]
           pre-runner-script: |
-            sudo yum install libicu -y
+            sudo dnf clean all
+            sudo dnf install libicu -y
 
   do-the-job:
     name: Do the job on the runner
@@ -80,8 +81,6 @@ jobs:
     steps:
       - name: Install Git
         run: |
-          sudo dnf clean all
-          sudo dnf makecache --refresh
           sudo dnf install -y git
       - name: Check out code into the Go module directory
         uses: actions/checkout@v4
