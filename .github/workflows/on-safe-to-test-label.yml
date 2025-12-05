@@ -97,17 +97,15 @@ jobs:
           sudo dnf install -y gcc gcc-c++ make automake autoconf libtool pkgconfig binutils glibc-devel kernel-headers
       - name: Install Go
         run: |
+          mkdir -p /home/ec2-user/go/bin
+          mkdir -p /home/ec2-user/.cache/go-build
+          mkdir -p /home/ec2-user/.cache/go-mod
           GOVERSION=go1.24.2
           wget https://go.dev/dl/$GOVERSION.linux-${{ env.GO_ARCHITECTURE }}.tar.gz
           sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf $GOVERSION.linux-${{ env.GO_ARCHITECTURE }}.tar.gz
           echo "/usr/local/go/bin" >> $GITHUB_PATH
           echo "GOPATH=/home/ec2-user/go" >> $GITHUB_ENV
           echo "GOBIN=/home/ec2-user/go/bin" >> $GITHUB_ENV
-      - name: Setup Go directories and cache
-        run: |
-          mkdir -p /home/ec2-user/go/bin
-          mkdir -p /home/ec2-user/.cache/go-build
-          mkdir -p /home/ec2-user/.cache/go-mod
           echo "GOCACHE=/home/ec2-user/.cache/go-build" >> $GITHUB_ENV
           echo "GOMODCACHE=/home/ec2-user/.cache/go-mod" >> $GITHUB_ENV
       - name: Go Cache
@@ -120,6 +118,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ inputs.architecture }}-go-
       - name: Download Go dependencies
+        env:
+          GOMODCACHE: /home/ec2-user/.cache/go-mod
         run: |
           go mod download
       - name: Install Docker
