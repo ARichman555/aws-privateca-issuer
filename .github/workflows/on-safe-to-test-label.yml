@@ -24,7 +24,7 @@ jobs:
       contents: read
     steps:
       - name: Setup AWS Credentials
-        uses: aws-actions/configure-aws-credentials@master
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::783680406432:role/GithubActionsTestingRole-test-us-east-1
           aws-region: us-east-1
@@ -234,7 +234,7 @@ jobs:
     if: ${{ (contains(github.event.pull_request.labels.*.name, 'safe to test') && !contains(github.event.pull_request.labels.*.name, 'lgtm') && always()) || (contains(github.event_name, 'workflow_dispatch')) }} # required to stop the runner even if the error happened in the previous jobs
     steps:
       - name: Setup AWS Credentials
-        uses: aws-actions/configure-aws-credentials@master
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::783680406432:role/GithubActionsTestingRole-test-us-east-1
           aws-region: us-east-1

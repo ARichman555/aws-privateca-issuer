@@ -25,14 +25,14 @@ jobs:
         id: tag
         uses: aws-pca-k8s-plugin-ops-admin/action-get-tag@727a6f0a561be04e09013531e73a3983a65e3479
       - name: Setup Dockerx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v3
       - name: Setup AWS Credentials
-        uses: aws-actions/configure-aws-credentials@master
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::105154636954:role/GithubActionsPublishRole-prod-us-east-1
           aws-region: us-east-1
       - name: Login to Public ECR
-        uses: docker/login-action@v1
+        uses: docker/login-action@v3
         with:
           registry: public.ecr.aws
         env:
@@ -57,7 +57,7 @@ jobs:
           cache-to: type=registry,ref=${{ env.TAG_BASE }}:buildcache,mode=max,image-manifest=true
           provenance: false
       - name: Login to Staging ECR
-        uses: docker/login-action@v1
+        uses: docker/login-action@v3
         with:
           registry: ${{ env.PRIVATE_REGISTRY }}
         env:
