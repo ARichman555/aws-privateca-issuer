@@ -70,7 +70,14 @@ jobs:
               {"Key": "Name", "Value": "ec2-github-runner"},
               {"Key": "GitHubRepository", "Value": "${{ github.repository }}"}
             ]
-
+          pre-runner-script: |
+            sudo rm -rf /var/cache/dnf/*
+            sudo rm -rf /var/lib/dnf/*
+            sudo dnf clean all
+            sudo dnf makecache --refresh
+            sudo dnf update -y
+            sudo dnf install libicu -y
+      
   do-the-job:
     name: Do the job on the runner
     needs: start-runner # required to start the main job when the runner is ready
@@ -78,9 +85,6 @@ jobs:
     steps:
       - name: Install Git
         run: |
-          sudo dnf clean all
-          sudo dnf update -y
-          sudo dnf install libicu -y
           sudo dnf install -y git
       - name: Check out code into the Go module directory
         uses: actions/checkout@v4
@@ -90,9 +94,7 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
       - name: Install Development Tools
         run: |
-          sudo dnf clean all
-          sudo dnf update -y
-          sudo dnf groupinstall "Development Tools" -y
+          sudo dnf install -y gcc gcc-c++ make automake autoconf libtool pkgconfig binutils glibc-devel kernel-headers
       - name: Install Go
         run: |
           mkdir /home/ec2-user/.cache
