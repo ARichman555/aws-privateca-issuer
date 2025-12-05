@@ -32,6 +32,15 @@ func GetBetaDefaults() (registry, repository string) {
 	return registry, repoName
 }
 
+// GetProdDefaults returns the default registry and repository for production mode
+// NOTE: For dev environments, change these defaults to point to your ECR registry
+func GetProdDefaults() (registry, repository string) {
+	registry = "public.ecr.aws/k1n1h4h4" // Default for main repository (not forked)
+	repoName := "cert-manager/aws-privateca-issuer" // Default for main repository (not forked)
+	
+	return registry, repoName
+}
+
 func (h *TestHelper) InstallChart(values map[string]interface{}) *release.Release {
 	mode := GetTestMode()
 	modeNames := map[TestMode]string{
