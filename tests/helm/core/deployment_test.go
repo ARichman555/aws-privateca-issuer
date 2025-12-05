@@ -1,31 +1,23 @@
-package helm
+package core
 
 import (
 	"context"
 	"testing"
 
 	"github.com/cert-manager/aws-privateca-issuer/tests/helm/testutil"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestDeployment(t *testing.T) {
-	helper := testutil.SetupTest(t)
-	defer helper.Cleanup()
-
-	tests := []struct {
-		name     string
-		values   map[string]interface{}
-		validate func(t *testing.T, h *testutil.TestHelper, releaseName string)
-	}{
+	testCases := []testutil.TestCase{
 		{
-			name: "disableApprovedCheck adds command line flag",
-			values: map[string]interface{}{
+			Name: "disableApprovedCheck adds command line flag",
+			Values: map[string]interface{}{
 				"disableApprovedCheck": true,
 			},
-			validate: func(t *testing.T, h *testutil.TestHelper, releaseName string) {
+			Validate: func(t *testing.T, h *testutil.TestHelper, releaseName string) {
 				deploymentName := releaseName + "-aws-privateca-issuer"
 				deployment, err := h.Clientset.AppsV1().Deployments(h.Namespace).Get(context.TODO(), deploymentName, metav1.GetOptions{})
 				require.NoError(t, err)
@@ -36,21 +28,5 @@ func TestDeployment(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			release := helper.InstallChart(tt.values)
-			if release == nil {
-				t.Skip("Chart installation failed")
-				return
-			}
-			defer helper.UninstallChart(release.Name)
-
-			deploymentName := release.Name + "-aws-privateca-issuer"
-			helper.WaitForDeployment(deploymentName)
-
-			if !t.Failed() {
-				tt.validate(t, helper, release.Name)
-			}
-		})
-	}
+	testutil.RunTestCases(t, testCases)
 }

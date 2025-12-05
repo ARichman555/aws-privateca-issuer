@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
@@ -39,6 +40,42 @@ func GetProdDefaults() (registry, repository string) {
 	repoName := "cert-manager/aws-privateca-issuer" // Default for main repository (not forked)
 	
 	return registry, repoName
+}
+
+// TestCase represents a single helm chart test case
+type TestCase struct {
+	Name     string
+	Values   map[string]interface{}
+	Validate func(t *testing.T, h *TestHelper, releaseName string)
+	// Optional: specify custom deployment name for waiting
+	DeploymentName func(releaseName string) string
+}
+
+// RunTestCases executes a set of helm chart test cases with common setup/teardown
+func RunTestCases(t *testing.T, testCases []TestCase) {
+	helper := SetupTest(t)
+	defer helper.Cleanup()
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			release := helper.InstallChart(tc.Values)
+			if release == nil {
+				t.Skip("Chart installation failed")
+				return
+			}
+			defer helper.UninstallChart(release.Name)
+
+			// Determine deployment name
+			deploymentName := release.Name + "-aws-privateca-issuer"
+			if tc.DeploymentName != nil {
+				deploymentName = tc.DeploymentName(release.Name)
+			}
+			
+			helper.WaitForDeployment(deploymentName)
+
+			tc.Validate(t, helper, release.Name)
+		})
+	}
 }
 
 func (h *TestHelper) InstallChart(values map[string]interface{}) *release.Release {

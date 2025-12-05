@@ -1,27 +1,20 @@
-package helm
+package features
 
 import (
 	"context"
 	"testing"
 
 	"github.com/cert-manager/aws-privateca-issuer/tests/helm/testutil"
-
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestServiceAccount(t *testing.T) {
-	helper := testutil.SetupTest(t)
-	defer helper.Cleanup()
-
-	tests := []struct {
-		name     string
-		values   map[string]interface{}
-		validate func(t *testing.T, h *testutil.TestHelper, releaseName string)
-	}{
+	testCases := []testutil.TestCase{
 		{
-			name: "serviceAccount with custom name",
-			values: map[string]interface{}{
+			Name: "serviceAccount with custom name",
+			Values: map[string]interface{}{
 				"serviceAccount": map[string]interface{}{
 					"create": true,
 					"name":   "custom-service-account",
@@ -30,32 +23,14 @@ func TestServiceAccount(t *testing.T) {
 					},
 				},
 			},
-			validate: func(t *testing.T, h *testutil.TestHelper, releaseName string) {
-				serviceAccountName := "custom-service-account"
-				sa, err := h.Clientset.CoreV1().ServiceAccounts(h.Namespace).Get(context.TODO(), serviceAccountName, metav1.GetOptions{})
-				if !assert.NoError(t, err, "ServiceAccount should exist") {
-					return
-				}
-				assert.Equal(t, "arn:aws:iam::123456789012:role/test-role", sa.Annotations["eks.amazonaws.com/role-arn"])
+			Validate: func(t *testing.T, h *testutil.TestHelper, releaseName string) {
+				serviceAccount, err := h.Clientset.CoreV1().ServiceAccounts(h.Namespace).Get(context.TODO(), "custom-service-account", metav1.GetOptions{})
+				require.NoError(t, err)
+				assert.NotNil(t, serviceAccount)
+				assert.Equal(t, "arn:aws:iam::123456789012:role/test-role", serviceAccount.Annotations["eks.amazonaws.com/role-arn"])
 			},
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			release := helper.InstallChart(tt.values)
-			if release == nil {
-				t.Skip("Chart installation failed")
-				return
-			}
-			defer helper.UninstallChart(release.Name)
-
-			deploymentName := release.Name + "-aws-privateca-issuer"
-			helper.WaitForDeployment(deploymentName)
-
-			if !t.Failed() {
-				tt.validate(t, helper, release.Name)
-			}
-		})
-	}
+	testutil.RunTestCases(t, testCases)
 }
