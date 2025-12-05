@@ -133,8 +133,6 @@ jobs:
           key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
       - name: Install Docker
         run: |
-          sudo dnf clean all
-          sudo dnf update -y
           sudo dnf install -y container-selinux
           sudo dnf install docker -y
           sudo service docker start
