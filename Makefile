@@ -1,6 +1,6 @@
 # The version which will be reported by the --version argument of each binary
 # and which will be used as the Docker image tag
-VERSION := $(shell git remote add mainRepo https://github.com/cert-manager/aws-privateca-issuer.git && git fetch mainRepo --tags && git describe --tags | awk -F"-" '{print $$1}' && git remote remove mainRepo)
+VERSION := $(shell grep '^version:' charts/aws-pca-issuer/Chart.yaml | awk '{print $$2}' | tr -d '"')
 
 # Default bundle image tag
 BUNDLE_IMG ?= controller-bundle:$(VERSION)
@@ -293,7 +293,7 @@ kind-export-logs:
 .PHONY: deploy-cert-manager
 deploy-cert-manager: ## Deploy cert-manager in the configured Kubernetes cluster in ~/.kube/config
 	helm repo add jetstack https://charts.jetstack.io --force-update
-	helm install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --version ${CERT_MANAGER_VERSION} --set crds.enabled=true --set config.apiVersion=controller.config.cert-manager.io/v1alpha1 --set config.kind=ControllerConfiguration --set config.kubernetesAPIQPS=10000 --set config.kubernetesAPIBurst=10000 --kubeconfig=${TEST_KUBECONFIG_LOCATION}
+	helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --version ${CERT_MANAGER_VERSION} --set crds.enabled=true --set config.apiVersion=controller.config.cert-manager.io/v1alpha1 --set config.kind=ControllerConfiguration --set config.kubernetesAPIQPS=10000 --set config.kubernetesAPIBurst=10000 --kubeconfig=${TEST_KUBECONFIG_LOCATION}
 	kubectl wait --for=condition=Available --timeout=300s apiservice v1.cert-manager.io --kubeconfig=${TEST_KUBECONFIG_LOCATION}
 
 .PHONY: install-local

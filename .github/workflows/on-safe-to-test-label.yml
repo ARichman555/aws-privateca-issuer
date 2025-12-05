@@ -6,12 +6,17 @@ on:
       architecture:
         required: true
         type: string
+      stage:
+        required: false
+        type: string
+        default: 'local'
 
 env:
   AWS_CLI_ARCHITECTURE: ${{ inputs.architecture == 'arm64' && 'aarch64' || 'x86_64' }}
   EC2_INSTANCE_TYPE: ${{ inputs.architecture == 'arm64' && 'c7gn.xlarge' || 'c7a.xlarge' }}
   GO_ARCHITECTURE: ${{ inputs.architecture == 'arm64' && 'arm64' || 'amd64' }}
   KUBECTL_ARCHITECTURE: $GO_ARCHITECTURE
+  CLUSTER_TARGET: ${{ inputs.stage == 'local' && 'cluster' || format('cluster-{0}', inputs.stage) }}
 
 jobs:
   start-runner:
@@ -143,7 +148,7 @@ jobs:
           echo HOME=$HOME >> $GITHUB_ENV
       - name: Run test cases with EC2 Instance Profiles and K8s Secret
         run: |
-          make cluster
+          make ${{ env.CLUSTER_TARGET }}
           make e2etest
       - name: Copy Kind logs to S3
         if: ${{ always() }}
@@ -163,7 +168,7 @@ jobs:
       - name: Run test cases with IRSA and K8s Secret
         if: ${{ always() }}
         run: |
-          make cluster
+          make ${{ env.CLUSTER_TARGET }}
           make install-eks-webhook
           make e2etest
       - name: Copy Kind logs to S3
@@ -211,7 +216,7 @@ jobs:
       - name: Run Blog Test
         if: ${{ inputs.architecture != 'arm64' }}
         run: |
-          make cluster
+          make ${{ env.CLUSTER_TARGET }}
           make install-eks-webhook
           make blog-test
       - name: Copy Kind logs to S3
@@ -231,7 +236,7 @@ jobs:
     permissions:
       id-token: write
       contents: read
-    if: ${{ (contains(github.event.pull_request.labels.*.name, 'safe to test') && !contains(github.event.pull_request.labels.*.name, 'lgtm') && always()) || (contains(github.event_name, 'workflow_dispatch')) }} # required to stop the runner even if the error happened in the previous jobs
+    if: ${{ always() }} # required to stop the runner even if the error happened in the previous jobs
     steps:
       - name: Setup AWS Credentials
         uses: aws-actions/configure-aws-credentials@master
