@@ -48,3 +48,6 @@ jobs:
           ${{ env.TAG_BASE }}:latest
           ${{ env.TAG_BASE }}:${{ env.PLUGIN_VERSION }}
         push: true
+        cache-from: type=registry,ref=${{ env.TAG_BASE }}:buildcache
+        cache-to: type=registry,ref=${{ env.TAG_BASE }}:buildcache,mode=max,image-manifest=true
+        provenance: false
