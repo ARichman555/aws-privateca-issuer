@@ -80,7 +80,7 @@ jobs:
     steps:
       - name: Install Git
         run: |
-          sudo dnf clean packages
+          sudo dnf clean all
           sudo dnf makecache --refresh
           sudo dnf install -y git
       - name: Check out code into the Go module directory
@@ -91,7 +91,7 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
       - name: Install Development Tools
         run: |
-          sudo dnf clean packages
+          sudo dnf clean all
           sudo dnf makecache --refresh
           sudo dnf groupinstall "Development Tools" -y
       - name: Install Go
