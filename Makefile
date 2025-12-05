@@ -6,7 +6,7 @@ VERSION := $(shell grep '^version:' charts/aws-pca-issuer/Chart.yaml | awk '{pri
 BETA_REGISTRY ?= public.ecr.aws/c9o0b7e4
 
 # Cache image for Docker builds (uses beta ECR registry)
-CACHE_IMAGE ?= $(BETA_REGISTRY)/cert-manager-aws-privateca-issuer-test:cache
+CACHE_IMAGE ?= $(BETA_REGISTRY)/arichman555-aws-privateca-issuer-test:cache
 
 # Default bundle image tag
 BUNDLE_IMG ?= controller-bundle:$(VERSION)
