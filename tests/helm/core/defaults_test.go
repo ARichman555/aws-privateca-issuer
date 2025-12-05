@@ -10,16 +10,16 @@ import (
 )
 
 func TestDefaults(t *testing.T) {
-	testCases := []testutil.TestCase{
+	testCases := []testutil.PrivateCaHelmTestCase{
 		{
 			Name:   "default values validation",
 			Values: map[string]interface{}{},
 			Validate: func(t *testing.T, h *testutil.TestHelper, releaseName string) {
-				names := testutil.ResourceNames{Release: releaseName}
-				
+				resources := testutil.PrivateCaIssuerResources{Release: releaseName}
+
 				// Validate deployment defaults
-				deployment := h.GetDeployment(names.Deployment())
-				testutil.ValidateDeploymentReplicas(t, deployment, 2)
+				deployment := h.GetPrivateCaDeployment(resources.Deployment())
+				testutil.ValidatePrivateCaDeploymentReplicas(t, deployment, 2)
 				assert.Equal(t, int32(10), *deployment.Spec.RevisionHistoryLimit)
 
 				// Validate image based on test mode
@@ -41,12 +41,12 @@ func TestDefaults(t *testing.T) {
 				}
 
 				// Validate service defaults
-				service := h.GetService(names.Service())
-				testutil.ValidateServiceType(t, service, corev1.ServiceTypeClusterIP)
-				testutil.ValidateServicePort(t, service, 8080)
+				service := h.GetPrivateCaService(resources.Service())
+				testutil.ValidatePrivateCaServiceType(t, service, corev1.ServiceTypeClusterIP)
+				testutil.ValidatePrivateCaServicePort(t, service, 8080)
 			},
 		},
 	}
 
-	testutil.RunTestCases(t, testCases)
+	testutil.RunPrivateCaHelmTests(t, testCases)
 }

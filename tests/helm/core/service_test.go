@@ -8,41 +8,41 @@ import (
 )
 
 func TestService(t *testing.T) {
-	testCases := []testutil.TestCase{
+	testCases := []testutil.PrivateCaHelmTestCase{
 		{
 			Name:   "custom service configuration",
-			Values: testutil.ServiceValues("NodePort", 9090),
+			Values: testutil.PrivateCaServiceValues("NodePort", 9090),
 			Validate: func(t *testing.T, h *testutil.TestHelper, releaseName string) {
-				names := testutil.ResourceNames{Release: releaseName}
-				service := h.GetService(names.Service())
-				
-				testutil.ValidateServiceType(t, service, corev1.ServiceTypeNodePort)
-				testutil.ValidateServicePort(t, service, 9090)
+				resources := testutil.PrivateCaIssuerResources{Release: releaseName}
+				service := h.GetPrivateCaService(resources.Service())
+
+				testutil.ValidatePrivateCaServiceType(t, service, corev1.ServiceTypeNodePort)
+				testutil.ValidatePrivateCaServicePort(t, service, 9090)
 			},
 		},
 		{
 			Name:   "nameOverride affects resource names",
-			Values: testutil.NameOverrideValues("custom-issuer", ""),
+			Values: testutil.PrivateCaNameOverrideValues("custom-issuer", ""),
 			DeploymentName: func(releaseName string) string {
 				return releaseName + "-custom-issuer"
 			},
 			Validate: func(t *testing.T, h *testutil.TestHelper, releaseName string) {
-				deployment := h.GetDeployment(releaseName + "-custom-issuer")
-				testutil.ValidateDeploymentReplicas(t, deployment, 2)
+				deployment := h.GetPrivateCaDeployment(releaseName + "-custom-issuer")
+				testutil.ValidatePrivateCaDeploymentReplicas(t, deployment, 2)
 			},
 		},
 		{
 			Name:   "fullnameOverride completely overrides resource names",
-			Values: testutil.NameOverrideValues("", "completely-custom-name"),
+			Values: testutil.PrivateCaNameOverrideValues("", "completely-custom-name"),
 			DeploymentName: func(releaseName string) string {
 				return "completely-custom-name"
 			},
 			Validate: func(t *testing.T, h *testutil.TestHelper, releaseName string) {
-				deployment := h.GetDeployment("completely-custom-name")
-				testutil.ValidateDeploymentReplicas(t, deployment, 2)
+				deployment := h.GetPrivateCaDeployment("completely-custom-name")
+				testutil.ValidatePrivateCaDeploymentReplicas(t, deployment, 2)
 			},
 		},
 	}
 
-	testutil.RunTestCases(t, testCases)
+	testutil.RunPrivateCaHelmTests(t, testCases)
 }

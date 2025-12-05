@@ -9,7 +9,7 @@ import (
 )
 
 func TestDeploymentConfiguration(t *testing.T) {
-	testCases := []testutil.TestCase{
+	testCases := []testutil.PrivateCaHelmTestCase{
 		{
 			Name: "custom resources and security context",
 			Values: map[string]interface{}{
@@ -34,17 +34,17 @@ func TestDeploymentConfiguration(t *testing.T) {
 				"revisionHistoryLimit": 5,
 			},
 			Validate: func(t *testing.T, h *testutil.TestHelper, releaseName string) {
-				names := testutil.ResourceNames{Release: releaseName}
-				deployment := h.GetDeployment(names.Deployment())
-				
-				testutil.ValidateDeploymentReplicas(t, deployment, 3)
+				resources := testutil.PrivateCaIssuerResources{Release: releaseName}
+				deployment := h.GetPrivateCaDeployment(resources.Deployment())
+
+				testutil.ValidatePrivateCaDeploymentReplicas(t, deployment, 3)
 				assert.Equal(t, int32(5), *deployment.Spec.RevisionHistoryLimit)
-				
+
 				// Validate security context
 				container := deployment.Spec.Template.Spec.Containers[0]
 				assert.Equal(t, false, *container.SecurityContext.AllowPrivilegeEscalation)
 				assert.Equal(t, true, *container.SecurityContext.RunAsNonRoot)
-				
+
 				// Validate pod security context
 				assert.Equal(t, int64(1000), *deployment.Spec.Template.Spec.SecurityContext.RunAsUser)
 			},
@@ -55,18 +55,18 @@ func TestDeploymentConfiguration(t *testing.T) {
 				"disableClientSideRateLimiting": true,
 			},
 			Validate: func(t *testing.T, h *testutil.TestHelper, releaseName string) {
-				names := testutil.ResourceNames{Release: releaseName}
-				deployment := h.GetDeployment(names.Deployment())
-				testutil.ValidateDeploymentArgs(t, deployment, "-disable-client-side-rate-limiting")
+				resources := testutil.PrivateCaIssuerResources{Release: releaseName}
+				deployment := h.GetPrivateCaDeployment(resources.Deployment())
+				testutil.ValidatePrivateCaDeploymentArgs(t, deployment, "-disable-client-side-rate-limiting")
 			},
 		},
 		{
-			Name: "custom image configuration",
-			Values: testutil.ImageValues("custom.registry.com/aws-privateca-issuer", "v1.0.0", "Always"),
+			Name:   "custom image configuration",
+			Values: testutil.PrivateCaImageValues("custom.registry.com/aws-privateca-issuer", "v1.0.0", "Always"),
 			Validate: func(t *testing.T, h *testutil.TestHelper, releaseName string) {
-				names := testutil.ResourceNames{Release: releaseName}
-				deployment := h.GetDeployment(names.Deployment())
-				
+				resources := testutil.PrivateCaIssuerResources{Release: releaseName}
+				deployment := h.GetPrivateCaDeployment(resources.Deployment())
+
 				container := deployment.Spec.Template.Spec.Containers[0]
 				assert.Equal(t, "custom.registry.com/aws-privateca-issuer:v1.0.0", container.Image)
 				assert.Equal(t, corev1.PullAlways, container.ImagePullPolicy)
@@ -85,14 +85,14 @@ func TestDeploymentConfiguration(t *testing.T) {
 				},
 			},
 			Validate: func(t *testing.T, h *testutil.TestHelper, releaseName string) {
-				names := testutil.ResourceNames{Release: releaseName}
-				deployment := h.GetDeployment(names.Deployment())
-				
+				resources := testutil.PrivateCaIssuerResources{Release: releaseName}
+				deployment := h.GetPrivateCaDeployment(resources.Deployment())
+
 				// Validate annotations
 				annotations := deployment.Spec.Template.Annotations
 				assert.Equal(t, "true", annotations["prometheus.io/scrape"])
 				assert.Equal(t, "8080", annotations["prometheus.io/port"])
-				
+
 				// Validate labels
 				labels := deployment.Spec.Template.Labels
 				assert.Equal(t, "test", labels["environment"])
@@ -101,5 +101,5 @@ func TestDeploymentConfiguration(t *testing.T) {
 		},
 	}
 
-	testutil.RunTestCases(t, testCases)
+	testutil.RunPrivateCaHelmTests(t, testCases)
 }

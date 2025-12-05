@@ -12,7 +12,7 @@ import (
 )
 
 func TestPodDisruptionBudget(t *testing.T) {
-	testCases := []testutil.TestCase{
+	testCases := []testutil.PrivateCaHelmTestCase{
 		{
 			Name: "podDisruptionBudget with maxUnavailable",
 			Values: map[string]interface{}{
@@ -21,16 +21,14 @@ func TestPodDisruptionBudget(t *testing.T) {
 				},
 			},
 			Validate: func(t *testing.T, h *testutil.TestHelper, releaseName string) {
-				names := testutil.ResourceNames{Release: releaseName}
-				
-				pdb, err := h.Clientset.PolicyV1().PodDisruptionBudgets(h.Namespace).Get(context.TODO(), names.Deployment(), metav1.GetOptions{})
+				pdb, err := h.Clientset.PolicyV1().PodDisruptionBudgets(h.Namespace).Get(context.TODO(), testutil.PrivateCaIssuerResources{Release: releaseName}.Deployment(), metav1.GetOptions{})
 				require.NoError(t, err)
-				
+
 				expectedMaxUnavailable := intstr.FromInt(1)
 				assert.Equal(t, &expectedMaxUnavailable, pdb.Spec.MaxUnavailable)
 			},
 		},
 	}
 
-	testutil.RunTestCases(t, testCases)
+	testutil.RunPrivateCaHelmTests(t, testCases)
 }

@@ -7,19 +7,19 @@ import (
 )
 
 func TestDeployment(t *testing.T) {
-	testCases := []testutil.TestCase{
+	testCases := []testutil.PrivateCaHelmTestCase{
 		{
 			Name: "disableApprovedCheck adds command line flag",
 			Values: map[string]interface{}{
 				"disableApprovedCheck": true,
 			},
 			Validate: func(t *testing.T, h *testutil.TestHelper, releaseName string) {
-				names := testutil.ResourceNames{Release: releaseName}
-				deployment := h.GetDeployment(names.Deployment())
-				testutil.ValidateDeploymentArgs(t, deployment, "-disable-approved-check")
+				resources := testutil.PrivateCaIssuerResources{Release: releaseName}
+				deployment := h.GetPrivateCaDeployment(resources.Deployment())
+				testutil.ValidatePrivateCaDeploymentArgs(t, deployment, "-disable-approved-check")
 			},
 		},
 	}
 
-	testutil.RunTestCases(t, testCases)
+	testutil.RunPrivateCaHelmTests(t, testCases)
 }
