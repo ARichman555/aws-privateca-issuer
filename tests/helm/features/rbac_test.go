@@ -13,22 +13,16 @@ import (
 func TestRBAC(t *testing.T) {
 	testCases := []testutil.TestCase{
 		{
-			Name: "rbac enabled creates ClusterRole and ClusterRoleBinding",
-			Values: map[string]interface{}{
-				"rbac": map[string]interface{}{
-					"create": true,
-				},
-				"serviceAccount": map[string]interface{}{
-					"create": true,
-				},
-			},
+			Name:   "rbac enabled creates ClusterRole and ClusterRoleBinding",
+			Values: testutil.RBACValues(true),
 			Validate: func(t *testing.T, h *testutil.TestHelper, releaseName string) {
-				clusterRoleName := releaseName + "-aws-privateca-issuer"
-				clusterRole, err := h.Clientset.RbacV1().ClusterRoles().Get(context.TODO(), clusterRoleName, metav1.GetOptions{})
+				names := testutil.ResourceNames{Release: releaseName}
+				
+				clusterRole, err := h.Clientset.RbacV1().ClusterRoles().Get(context.TODO(), names.ClusterRole(), metav1.GetOptions{})
 				require.NoError(t, err)
 				assert.NotNil(t, clusterRole)
 
-				clusterRoleBinding, err := h.Clientset.RbacV1().ClusterRoleBindings().Get(context.TODO(), clusterRoleName, metav1.GetOptions{})
+				clusterRoleBinding, err := h.Clientset.RbacV1().ClusterRoleBindings().Get(context.TODO(), names.ClusterRoleBinding(), metav1.GetOptions{})
 				require.NoError(t, err)
 				assert.NotNil(t, clusterRoleBinding)
 			},
