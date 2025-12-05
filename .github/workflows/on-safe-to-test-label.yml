@@ -71,6 +71,7 @@ jobs:
               {"Key": "GitHubRepository", "Value": "${{ github.repository }}"}
             ]
           pre-runner-script: |
+            sudo dnf update
             sudo dnf clean all
             sudo dnf install libicu -y
 
