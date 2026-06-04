@@ -1,4 +1,5 @@
 # Build the manager binary
+# (test edit to validate Trivy PR workflow — will be reverted)
 FROM --platform=${BUILDPLATFORM} golang:1.26 as builder
 WORKDIR /workspace
 
