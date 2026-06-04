@@ -1,0 +1,73 @@
+# Copyright 2025 The cert-manager Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Trivy Scanner - PR Build
+
+# Builds the container image from the PR source, scans it, and fails the
+# check if any HIGH or CRITICAL vulnerabilities are found. Intended to be
+# wired up as a required status check via branch protection so vulnerable
+# Dockerfile / dependency changes cannot merge.
+#
+# This workflow does NOT upload SARIF to the Security tab — that surface is
+# reserved for vulnerabilities in shipped artifacts (see trivy-containers.yml,
+# which scans the published image). PR findings are surfaced as a failed
+# status check + Trivy's table output in the Action log.
+#
+# No `paths:` filter: required status checks combined with paths filters
+# leave the check stuck in "pending" on PRs that don't match the filter,
+# blocking merge. Always running the scan keeps the required-check semantics
+# clean. Docker layer caching can be added later if PR build time becomes a
+# concern.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  trivy-scan-pr:
+    name: Build and scan PR image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build PR image (no push, single-arch for scanning)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          # Single arch is enough for vulnerability scanning. The release
+          # workflow still validates the multi-arch build on tag push.
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: aws-privateca-issuer:pr-${{ github.event.pull_request.number || github.sha }}
+          build-args: |
+            pkg_version=pr-${{ github.event.pull_request.number || github.sha }}
+
+      - name: Scan PR image (fail on HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@v0.36.0
+        env:
+          TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db,public.ecr.aws/aquasecurity/trivy-db
+        with:
+          image-ref: 'aws-privateca-issuer:pr-${{ github.event.pull_request.number || github.sha }}'
+          format: 'table'
+          ignore-unfixed: true
+          severity: 'HIGH,CRITICAL'
+          exit-code: '1'

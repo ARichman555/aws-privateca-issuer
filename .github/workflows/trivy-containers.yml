@@ -1,0 +1,63 @@
+# Copyright 2025 The cert-manager Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Trivy Scanner - Container Images
+
+on:
+  schedule:
+    # Run once per day. Mirrors the cadence used by the EBS CSI driver.
+    - cron: '0 */24 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write # Required to upload findings to the GitHub Security tab
+
+jobs:
+  trivy-scan:
+    name: Scan published container image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get image tag from Helm chart
+        id: image
+        # Chart.yaml's appVersion is bumped in lockstep with the published image tag
+        # (see .github/workflows/on-release.yml).
+        run: echo "tag=$(yq '.appVersion' charts/aws-pca-issuer/Chart.yaml)" >> "$GITHUB_OUTPUT"
+
+      - name: Pull container image
+        # public.ecr.aws permits anonymous pulls, so no AWS credentials are required.
+        run: docker pull public.ecr.aws/k1n1h4h4/cert-manager-aws-privateca-issuer:${{ steps.image.outputs.tag }}
+
+      - name: Scan container image
+        uses: aquasecurity/trivy-action@v0.36.0
+        env:
+          # Mirror the Trivy DB to the AWS public registry to reduce GHCR rate-limit issues.
+          TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db,public.ecr.aws/aquasecurity/trivy-db
+        with:
+          image-ref: 'public.ecr.aws/k1n1h4h4/cert-manager-aws-privateca-issuer:${{ steps.image.outputs.tag }}'
+          output: 'results.sarif'
+          format: 'sarif'
+          ignore-unfixed: true
+          severity: 'HIGH,CRITICAL'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'results.sarif'
+          # Distinct category so findings from this workflow don't collide with
+          # the PR-build scan in trivy-pr.yml.
+          category: trivy-published
