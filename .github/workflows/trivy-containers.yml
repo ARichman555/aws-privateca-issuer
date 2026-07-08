@@ -21,12 +21,12 @@ jobs:
 
       - name: Get image tag from Helm chart
         id: image
-        run: echo "tag=$(yq '.appVersion' charts/aws-pca-issuer/Chart.yaml)" >> "$GITHUB_OUTPUT"
+        run: echo "tag=v1.9.0" >> "$GITHUB_OUTPUT"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6.2.0
         with:
-          role-to-assume: arn:aws:iam::105154636954:role/GithubActionsScanRole-prod-us-east-1
+          role-to-assume: arn:aws:iam::905418208571:role/GithubActionsPublishRole-wrichman-us-east-1
           aws-region: us-east-1
           role-session-name: TrivyScan-${{ github.run_id }}
 
