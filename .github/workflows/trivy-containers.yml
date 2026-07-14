@@ -21,17 +21,17 @@ jobs:
 
       - name: Get image tag from Helm chart
         id: image
-        run: echo "tag=v1.9.0" >> "$GITHUB_OUTPUT"
+        run: echo "tag=$(yq '.appVersion' charts/aws-pca-issuer/Chart.yaml)" >> "$GITHUB_OUTPUT"
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6.2.0
+        uses: aws-actions/configure-aws-credentials@517a711dbcd0e402f90c77e7e2f81e849156e31d # v6.2.2
         with:
-          role-to-assume: arn:aws:iam::905418208571:role/GithubActionsPublishRole-wrichman-us-east-1
+          role-to-assume: arn:aws:iam::105154636954:role/GithubActionsScanRole-prod-us-east-1
           aws-region: us-east-1
           role-session-name: TrivyScan-${{ github.run_id }}
 
       - name: Login to Amazon Public ECR
-        uses: aws-actions/amazon-ecr-login@fa648b43de3d4d023bcb3f89ed6940096949c419 # v2.1.5
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2.1.6
         with:
           registry-type: public
 
@@ -51,28 +51,50 @@ jobs:
           ignore-unfixed: true
           severity: 'HIGH,CRITICAL'
 
-      - name: Summarize results
+      - name: Download previous CVE list
+        uses: actions/download-artifact@v4
+        with:
+          name: trivy-cve-list
+        continue-on-error: true
+
+      - name: Summarize and detect new CVEs
         id: summary
         run: |
-          CRITICAL=$(jq '[.Results[].Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' results.json)
-          HIGH=$(jq '[.Results[].Vulnerabilities[]? | select(.Severity == "HIGH")] | length' results.json)
-          echo "critical=$CRITICAL" >> "$GITHUB_OUTPUT"
-          echo "high=$HIGH" >> "$GITHUB_OUTPUT"
-          echo "total=$((CRITICAL + HIGH))" >> "$GITHUB_OUTPUT"
+          # Rename previously downloaded artifact, default to empty list
+          [ -f current-cves.json ] && mv current-cves.json previous-cves.json || echo '[]' > previous-cves.json
+
+          # Extract current CVE IDs
+          jq '[.Results[].Vulnerabilities[]?.VulnerabilityID] | unique' results.json > current-cves.json
+
+          # Count by severity in one pass
+          eval "$(jq -r '.Results[].Vulnerabilities[]? | .Severity' results.json | sort | uniq -c | awk '{print tolower($2) "=" $1}')"
+          echo "critical=${critical:-0}" >> "$GITHUB_OUTPUT"
+          echo "high=${high:-0}" >> "$GITHUB_OUTPUT"
+          echo "total=$(( ${critical:-0} + ${high:-0} ))" >> "$GITHUB_OUTPUT"
+
+          # Count new CVEs via jq array subtraction
+          NEW_COUNT=$(jq --slurpfile prev previous-cves.json '. - $prev[0] | length' current-cves.json)
+          echo "new_count=$NEW_COUNT" >> "$GITHUB_OUTPUT"
+
+      - name: Upload current CVE list
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-cve-list
+          path: current-cves.json
+          overwrite: true
 
       - name: Send scan results to Slack
-        if: steps.summary.outputs.total != '0'
         uses: slackapi/slack-github-action@v3.0.3
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
           payload: |
             {
-              "text": "Trivy daily scan: aws-privateca-issuer:${{ steps.image.outputs.tag }} — ${{ steps.summary.outputs.total }} vulnerabilities (${{ steps.summary.outputs.critical }} critical, ${{ steps.summary.outputs.high }} high)",
               "image_tag": "${{ steps.image.outputs.tag }}",
               "total": "${{ steps.summary.outputs.total }}",
               "critical": "${{ steps.summary.outputs.critical }}",
               "high": "${{ steps.summary.outputs.high }}",
+              "new_count": "${{ steps.summary.outputs.new_count }}",
               "scan_url": "${{ github.server_url }}/${{ github.repository }}/security/code-scanning",
               "run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             }
@@ -90,7 +112,7 @@ jobs:
           skip-setup-trivy: true
 
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
+        uses: github/codeql-action/upload-sarif@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4.37.0
         with:
           sarif_file: 'results.sarif'
           category: trivy-published
