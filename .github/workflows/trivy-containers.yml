@@ -76,6 +76,9 @@ jobs:
           NEW_COUNT=$(jq --slurpfile prev previous-cves.json '. - $prev[0] | length' current-cves.json)
           echo "new_count=$NEW_COUNT" >> "$GITHUB_OUTPUT"
 
+          # Is it Monday?
+          [ "$(date -u +%u)" = "1" ] && echo "is_monday=true" >> "$GITHUB_OUTPUT" || echo "is_monday=false" >> "$GITHUB_OUTPUT"
+
       - name: Upload current CVE list
         uses: actions/upload-artifact@v4
         with:
@@ -95,6 +98,7 @@ jobs:
               "critical": "${{ steps.summary.outputs.critical }}",
               "high": "${{ steps.summary.outputs.high }}",
               "new_count": "${{ steps.summary.outputs.new_count }}",
+              "is_monday": "${{ steps.summary.outputs.is_monday }}",
               "scan_url": "${{ github.server_url }}/${{ github.repository }}/security/code-scanning",
               "run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             }
