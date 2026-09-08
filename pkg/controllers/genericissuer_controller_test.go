@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	awspca "github.com/cert-manager/aws-privateca-issuer/pkg/aws"
 	logrtesting "github.com/go-logr/logr/testing"
@@ -262,6 +263,49 @@ func TestIssuerReconcile(t *testing.T) {
 			},
 			expectedReadyConditionStatus: metav1.ConditionFalse,
 			expectedError:                errNoArnInSpec,
+			expectedResult:               ctrl.Result{},
+		},
+		"failure-issuer-negative-not-before-offset": {
+			name: types.NamespacedName{Namespace: "ns1", Name: "issuer1"},
+			objects: []client.Object{
+				&issuerapi.AWSPCAIssuer{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "issuer1",
+						Namespace: "ns1",
+					},
+					Spec: issuerapi.AWSPCAIssuerSpec{
+						SecretRef: issuerapi.AWSCredentialsSecretReference{
+							SecretReference: v1.SecretReference{
+								Name:      "issuer1-credentials",
+								Namespace: "ns1",
+							},
+						},
+						Region:          "us-east-1",
+						Arn:             "arn:aws:acm-pca:us-east-1:account:certificate-authority/12345678-1234-1234-1234-123456789012",
+						NotBeforeOffset: &metav1.Duration{Duration: -30 * time.Second},
+					},
+					Status: issuerapi.AWSPCAIssuerStatus{
+						Conditions: []metav1.Condition{
+							{
+								Type:   issuerapi.ConditionTypeReady,
+								Status: metav1.ConditionUnknown,
+							},
+						},
+					},
+				},
+				&v1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "issuer1-credentials",
+						Namespace: "ns1",
+					},
+					Data: map[string][]byte{
+						"AWS_ACCESS_KEY_ID":     []byte("ZXhhbXBsZQ=="),
+						"AWS_SECRET_ACCESS_KEY": []byte("ZXhhbXBsZQ=="),
+					},
+				},
+			},
+			expectedReadyConditionStatus: metav1.ConditionFalse,
+			expectedError:                errNegativeNotBeforeOffset,
 			expectedResult:               ctrl.Result{},
 		},
 		"failure-issuer-no-access-key-specified": {

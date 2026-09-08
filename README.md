@@ -86,6 +86,12 @@ This is a regular namespaced issuer that can be used as a reference in your Cert
 
 This CR is identical to the AWSPCAIssuer. The only difference being that it's not namespaced and can be referenced from anywhere.
 
+### Setting NotBefore on issued certificates
+
+AWS Private CA sets `NotBefore` to one hour before the issuance time, to absorb clock skew between hosts. That hour is part of the issued certificate's lifetime, so on short-lived certificates it can produce a certificate that clients consider due for renewal as soon as it arrives. Please see [this issue](https://github.com/cert-manager/aws-privateca-issuer/issues/479) for a case where 1 hour certificates were re-issued in a loop until the PCA request quota was exhausted.
+
+When creating an AWSPCAIssuer or AWSPCAClusterIssuer, you can set `spec.notBeforeOffset` to choose that distance yourself, as a non-negative duration in whole seconds, minutes or hours (`30s`, `1h30m`). Keep it well under the shortest `duration` requested from the issuer: `NotAfter` is derived from the requested `duration` alone, so the offset lengthens the issued certificate and cert-manager renews against that longer window. The offset applies to every certificate the issuer signs, so use separate issuers for the same CA if only some of your workloads need short-lived certificates. See [`config/examples/config/issuer-with-not-before-offset.yaml`](config/examples/config/issuer-with-not-before-offset.yaml).
+
 ### Usage with cert-manager Ingress Annotations
 
 The `cert-manager.io/cluster-issuer` annotation cannot be used to point at a `AWSPCAClusterIssuer`. Instead, use `cert-manager.io/issuer:`. Please see [this issue](https://github.com/cert-manager/aws-privateca-issuer/issues/252) for more information.

@@ -36,8 +36,9 @@ import (
 )
 
 var (
-	errNoArnInSpec    = errors.New("no Arn found in Issuer Spec")
-	errNoRegionInSpec = errors.New("no Region found in Issuer Spec")
+	errNoArnInSpec             = errors.New("no Arn found in Issuer Spec")
+	errNoRegionInSpec          = errors.New("no Region found in Issuer Spec")
+	errNegativeNotBeforeOffset = errors.New("notBeforeOffset in Issuer Spec must not be negative")
 )
 
 var awsDefaultRegion = os.Getenv("AWS_REGION")
@@ -111,6 +112,8 @@ func validateIssuer(spec *api.AWSPCAIssuerSpec) error {
 		return errNoArnInSpec
 	case spec.Region == "" && awsDefaultRegion == "":
 		return errNoRegionInSpec
+	case spec.NotBeforeOffset != nil && spec.NotBeforeOffset.Duration < 0:
+		return errNegativeNotBeforeOffset
 	}
 	return nil
 }
